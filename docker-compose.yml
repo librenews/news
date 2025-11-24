@@ -1,0 +1,101 @@
+services:
+  feedbrainer:
+    build:
+      context: .
+      dockerfile: docker/feedbrainer/Dockerfile
+      target: dev
+    env_file:
+      - config/env/dev.env
+    environment:
+      DATABASE_URL: postgres://feedbrainer:feedbrainer@postgres:5432/feedbrainer_dev
+      REDIS_URL: redis://redis:6379/0
+      SKYBEAM_URL: http://skybeam:4000
+      SKYTORCH_URL: http://skytorch:5000
+      SKYWIRE_URL: http://skywire:6000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./feedbrainer:/app/feedbrainer
+    command: bin/dev
+
+  skybeam:
+    build:
+      context: .
+      dockerfile: docker/skybeam/Dockerfile
+      target: dev
+    env_file:
+      - config/env/dev.env
+    environment:
+      MIX_ENV: dev
+      DATABASE_URL: postgres://feedbrainer:feedbrainer@postgres:5432/feedbrainer_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4101:4000"
+    volumes:
+      - ./skybeam:/app/skybeam
+
+  skytorch:
+    build:
+      context: .
+      dockerfile: docker/skytorch/Dockerfile
+      target: dev
+    env_file:
+      - config/env/dev.env
+    depends_on:
+      redis:
+        condition: service_started
+    ports:
+      - "5101:5000"
+    volumes:
+      - ./skytorch:/app/skytorch
+
+  skywire:
+    build:
+      context: .
+      dockerfile: docker/skywire/Dockerfile
+      target: dev
+    env_file:
+      - config/env/dev.env
+    ports:
+      - "6101:6000"
+    volumes:
+      - ./skywire:/app/skywire
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: feedbrainer
+      POSTGRES_PASSWORD: feedbrainer
+      POSTGRES_DB: feedbrainer_dev
+    ports:
+      - "6432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feedbrainer -d feedbrainer_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "7637:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+
+volumes:
+  postgres_data:
+  redis_data:
+

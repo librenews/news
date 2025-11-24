@@ -1,0 +1,146 @@
+# Name of your application. Used to uniquely configure containers.
+service: news
+
+# Name of the container image for the main Rails app.
+image: lbrenews/feedbrainer
+
+# Deploy to these servers.
+servers:
+  web:
+    hosts:
+      - 164.90.132.64
+    options:
+      network: news-app
+    labels:
+      app: feedbrainer
+
+# Enable SSL auto certification via Let's Encrypt
+proxy:
+  ssl: true
+  host: open.news
+
+# Credentials for your image host (Docker Hub)
+registry:
+  username: lbrenews
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+# Inject ENV variables into containers (secrets come from .kamal/secrets)
+env:
+  secret:
+    - RAILS_MASTER_KEY
+    - POSTGRES_PASSWORD
+  clear:
+    RAILS_ENV: production
+    SOLID_QUEUE_IN_PUMA: true
+    DATABASE_URL: postgres://feedbrainer:feedbrainer_prod_2024@news-db:5432/feedbrainer_production
+    REDIS_URL: redis://news-redis:6379/0
+    SKYBEAM_URL: http://news-skybeam:4000
+    SKYTORCH_URL: http://news-skytorch:5000
+    SKYWIRE_URL: http://news-skywire:6000
+
+# Aliases for common commands
+aliases:
+  console: app exec --interactive --reuse "bin/rails console"
+  shell: app exec --interactive --reuse "bash"
+  logs: app logs -f
+  dbc: app exec --interactive --reuse "bin/rails dbconsole"
+
+# Use a persistent storage volume
+volumes:
+  - "feedbrainer_storage:/rails/storage"
+
+# Bridge fingerprinted assets between versions
+asset_path: /rails/public/assets
+
+# Configure the image builder
+builder:
+  arch: amd64
+  context: .
+  dockerfile: docker/feedbrainer/Dockerfile
+  target: production
+
+# Use a different ssh user than root
+ssh:
+  user: deploy
+
+# Main application command (uses CMD from Dockerfile by default)
+# The Dockerfile CMD is: bin/rails server -b 0.0.0.0 -p 3000
+
+# Use accessory services (secrets come from .kamal/secrets)
+accessories:
+  db:
+    image: pgvector/pgvector:pg16
+    host: 164.90.132.64
+    port: "127.0.0.1:5432:5432"
+    options:
+      network: news-app
+    env:
+      clear:
+        POSTGRES_DB: feedbrainer_production
+        POSTGRES_USER: feedbrainer
+      secret:
+        - POSTGRES_PASSWORD
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    cmd: postgres
+
+  redis:
+    image: redis:7.4-alpine
+    host: 164.90.132.64
+    port: "127.0.0.1:6379:6379"
+    options:
+      network: news-app
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    cmd: redis-server /usr/local/etc/redis/redis.conf
+
+  skybeam:
+    image: lbrenews/skybeam
+    host: 164.90.132.64
+    port: "127.0.0.1:4000:4000"
+    options:
+      network: news-app
+    env:
+      clear:
+        MIX_ENV: prod
+        DATABASE_URL: postgres://feedbrainer:feedbrainer_prod_2024@news-db:5432/feedbrainer_production
+    cmd: /app_release/skybeam/bin/skybeam start
+
+  skytorch:
+    image: lbrenews/skytorch
+    host: 164.90.132.64
+    port: "127.0.0.1:5000:5000"
+    options:
+      network: news-app
+    env:
+      clear:
+        ENVIRONMENT: production
+        POSTGRES_HOST: news-db
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: feedbrainer
+        POSTGRES_DB: feedbrainer_production
+        REDIS_URL: redis://news-redis:6379/0
+        FEEDBRAINER_URL: http://news-web:3000
+        SKYBEAM_URL: http://news-skybeam:4000
+        SKYWIRE_URL: http://news-skywire:6000
+      secret:
+        - POSTGRES_PASSWORD
+        - ATPROTO_HANDLE
+        - ATPROTO_PASSWORD
+    cmd: uvicorn skytorch.main:app --host 0.0.0.0 --port 5000
+
+  skywire:
+    image: lbrenews/skywire
+    host: 164.90.132.64
+    port: "127.0.0.1:6000:6000"
+    options:
+      network: news-app
+    env:
+      clear:
+        NODE_ENV: production
+        PORT: 6000
+        HOST: 0.0.0.0
+    cmd: node src/index.js
