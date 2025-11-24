@@ -39,8 +39,8 @@ Rails.application.configure do
   # Set host to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = { host: "example.com" }
 
-  # Allow default test hostnames (e.g., www.example.com)
-  config.hosts.clear
+  # Allow test hosts - use wildcard pattern to match subdomains
+  config.hosts = [".localhost", ".test", ".example.com"]
 
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr

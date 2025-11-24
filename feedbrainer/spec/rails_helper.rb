@@ -20,5 +20,11 @@ RSpec.configure do |config|
 
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!
+
+  # Set default host for request specs to avoid host authorization issues
+  # Use localhost since .localhost is in the default allowed hosts
+  config.before(:each, type: :request) do
+    host! "localhost"
+  end
 end
 

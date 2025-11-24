@@ -11,8 +11,10 @@ RSpec.describe "API::Sources", type: :request do
         UserSource.create!(user:, source:)
       end
 
-      get api_sources_path, as: :json, headers: { "User-Agent" => "Mozilla/5.0" }
-      puts response.body
+      get api_sources_path, as: :json 
+      puts "Status: #{response.status}"
+      puts "Body: #{response.body}"
+      puts "Headers: #{response.headers}"
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body)).to eq(dids)
     end
