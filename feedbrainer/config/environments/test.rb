@@ -39,6 +39,9 @@ Rails.application.configure do
   # Set host to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = { host: "example.com" }
 
+  # Allow default test hostnames (e.g., www.example.com)
+  config.hosts.clear
+
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr
 
@@ -50,4 +53,7 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # Disable browser version check in test environment
+  config.action_controller.allow_browser = false
 end
