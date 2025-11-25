@@ -15,7 +15,12 @@ defmodule Skybeam.Application do
       # Start a worker by calling: Skybeam.Worker.start_link(arg)
       # {Skybeam.Worker, arg},
       # Start to serve requests, typically the last entry
-      SkybeamWeb.Endpoint
+      SkybeamWeb.Endpoint,
+      Skybeam.Redis,
+      Skybeam.SourceCache,
+      Skybeam.Firehose.Producer,
+      Skybeam.Firehose.Pipeline,
+      Skybeam.Jetstream.Client
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

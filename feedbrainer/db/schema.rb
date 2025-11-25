@@ -10,10 +10,18 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_25_131500) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_25_202118) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
+
+  create_table "posts", force: :cascade do |t|
+    t.bigint "source_id", null: false
+    t.jsonb "post"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_id"], name: "index_posts_on_source_id"
+  end
 
   create_table "sources", force: :cascade do |t|
     t.text "atproto_did"
@@ -39,6 +47,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_25_131500) do
     t.index ["atproto_did"], name: "index_users_on_atproto_did", unique: true
   end
 
+  add_foreign_key "posts", "sources"
   add_foreign_key "user_sources", "sources"
   add_foreign_key "user_sources", "users"
 end

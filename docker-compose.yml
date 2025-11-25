@@ -23,6 +23,25 @@ services:
       - ./feedbrainer:/app/feedbrainer
     command: bin/dev
 
+  feedbrainer_consumer:
+    build:
+      context: .
+      dockerfile: docker/feedbrainer/Dockerfile
+      target: dev
+    env_file:
+      - config/env/dev.env
+    environment:
+      DATABASE_URL: postgres://feedbrainer:feedbrainer@postgres:5432/feedbrainer_dev
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./feedbrainer:/app/feedbrainer
+    command: bundle exec ruby script/firehose_consumer.rb
+
   skybeam:
     build:
       context: .
@@ -33,13 +52,15 @@ services:
     environment:
       MIX_ENV: dev
       DATABASE_URL: postgres://feedbrainer:feedbrainer@postgres:5432/feedbrainer_dev
+      FEEDBRAINER_URL: http://feedbrainer:3000
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "4101:4000"
     volumes:
-      - ./skybeam:/app/skybeam
+      - ./skybeam:/app
 
   skytorch:
     build:

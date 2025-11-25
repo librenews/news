@@ -53,7 +53,10 @@ defmodule Skybeam.MixProject do
       {:bandit, "~> 1.5"},
       {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0"},
-      {:redix, "~> 1.2"}
+      {:redix, "~> 1.2"},
+      {:websockex, "~> 0.4.3"},
+      {:broadway, "~> 1.0"},
+      {:req, "~> 0.4.0"}
     ]
   end
 

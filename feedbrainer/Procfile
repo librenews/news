@@ -1,0 +1,6 @@
+# Procfile for running firehose consumer
+# Use with: foreman start
+# Or in production with systemd/docker
+
+web: bundle exec rails server -b 0.0.0.0 -p 3000
+firehose: bundle exec ruby script/firehose_consumer.rb
