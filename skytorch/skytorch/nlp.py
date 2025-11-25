@@ -74,6 +74,49 @@ def get_sentence_transformer(model_name: str = "all-MiniLM-L6-v2"):
     return _sentence_model
 
 
+def extract_named_entities(text: str, model_name: str = "en_core_web_sm"):
+    """
+    Extract named entities from text using Spacy.
+    
+    Args:
+        text: Input text to extract entities from
+        model_name: Name of the spacy model to use
+        
+    Returns:
+        List of dictionaries with keys: text, label, start, end
+        
+    Raises:
+        ImportError: If spacy is not installed
+        OSError: If the spacy model is not found
+        ValueError: If text is empty or invalid
+    """
+    if not text or not text.strip():
+        raise ValueError("Text cannot be empty")
+    
+    if not HAS_NLP_DEPS:
+        raise ImportError(
+            "spacy is not installed. Install it with: pip install spacy"
+        )
+    
+    # Get the spacy model
+    nlp = get_spacy_model(model_name)
+    
+    # Process the text
+    doc = nlp(text)
+    
+    # Extract entities
+    entities = []
+    for ent in doc.ents:
+        entities.append({
+            "text": ent.text,
+            "label": ent.label_,
+            "start": ent.start_char,
+            "end": ent.end_char,
+        })
+    
+    return entities
+
+
 def initialize_nlp_models(
     spacy_model: str = "en_core_web_sm",
     sentence_model: str = "all-MiniLM-L6-v2"
