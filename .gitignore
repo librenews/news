@@ -1,1 +1,49 @@
+# Kamal secrets
 .kamal/secrets
+
+# Rails (feedbrainer)
+feedbrainer/tmp/
+feedbrainer/log/
+feedbrainer/storage/
+feedbrainer/public/assets/
+feedbrainer/public/packs/
+feedbrainer/node_modules/
+feedbrainer/.bundle/
+
+# Elixir (skybeam)
+skybeam/_build/
+skybeam/deps/
+skybeam/*.ez
+skybeam/erl_crash.dump
+skybeam/.elixir_ls/
+
+# Python (skytorch)
+skytorch/__pycache__/
+skytorch/*.py[cod]
+skytorch/*$py.class
+skytorch/.pytest_cache/
+skytorch/.venv/
+skytorch/venv/
+skytorch/*.egg-info/
+
+# Node.js (skywire)
+skywire/node_modules/
+skywire/dist/
+skywire/build/
+skywire/.next/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+reading
+transferring
+deploy.log

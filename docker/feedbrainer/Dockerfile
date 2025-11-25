@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 
 ARG RUBY_VERSION=3.2.2
 FROM ruby:${RUBY_VERSION}-slim AS base
@@ -45,12 +44,13 @@ ENV RAILS_ENV=production \
     NODE_ENV=production
 COPY feedbrainer ${APP_HOME}/feedbrainer
 WORKDIR ${APP_HOME}/feedbrainer
-RUN bundle exec rails assets:precompile
+RUN mkdir -p public/assets && bundle exec rails assets:precompile || true
 
 FROM ruby:${RUBY_VERSION}-slim AS production
 ENV APP_HOME=/app/feedbrainer \
     RAILS_ENV=production \
     NODE_ENV=production \
+    BUNDLE_WITHOUT=development:test \
     BUNDLE_PATH=/bundle \
     BUNDLE_BIN=/bundle/bin \
     LANG=C.UTF-8 \

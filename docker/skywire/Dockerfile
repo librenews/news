@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 
 ARG NODE_VERSION=20
 FROM node:${NODE_VERSION}-bullseye AS base

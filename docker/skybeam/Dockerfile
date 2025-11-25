@@ -1,61 +1,84 @@
-# syntax=docker/dockerfile:1.7
 
 ARG ELIXIR_VERSION=1.16
 
-FROM elixir:${ELIXIR_VERSION} AS base
+FROM elixir:${ELIXIR_VERSION} AS build
 
-ENV APP_HOME=/app/skybeam \
-    MIX_ENV=prod \
-    LANG=C.UTF-8
+WORKDIR /app
 
+# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       build-essential \
       git \
-      curl \
-      libssl-dev \
-      inotify-tools \
       nodejs \
       npm && \
-    npm install --global yarn && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR ${APP_HOME}
-
+# Install hex + rebar
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-FROM base AS deps
-COPY skybeam/mix.exs ./
-COPY skybeam/mix.lock* ./
-COPY skybeam/config ./config
-RUN mix deps.get
+# Set build environment
+ENV MIX_ENV=prod
 
-FROM deps AS build
-COPY skybeam ${APP_HOME}
+# Copy mix files
+COPY skybeam/mix.exs skybeam/mix.lock* ./
+
+# Install dependencies (get first, then compile separately to avoid Hex/SSL issues)
+RUN mix deps.get --only prod
+RUN mix deps.compile
+
+# Copy application code
+COPY skybeam/lib/ ./lib/
+COPY skybeam/config/ ./config/
+COPY skybeam/assets/ ./assets/
+COPY skybeam/priv/ ./priv/
+
+# Compile application and build assets
 RUN mix assets.deploy || true
 RUN mix compile
 
+# Create release
+RUN mix release
+
 FROM build AS dev
 ENV MIX_ENV=dev
-# Create entrypoint script to ensure deps are installed
-RUN echo '#!/bin/sh\nmix deps.get\nmix phx.server' > /entrypoint.sh && \
-    chmod +x /entrypoint.sh
-CMD ["/entrypoint.sh"]
+# Install dev dependencies
+RUN mix deps.get
+CMD ["sh", "-c", "mix phx.server"]
 
-FROM build AS release
-RUN MIX_ENV=prod mix release
-
+# Runtime stage
 FROM debian:bookworm-slim AS production
+
+WORKDIR /app
+
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      libssl3 \
-      libstdc++6 && \
+      openssl \
+      libncurses6 \
+      ca-certificates \
+      curl && \
     rm -rf /var/lib/apt/lists/*
-ENV APP_HOME=/opt/skybeam \
-    HOME=/opt/skybeam \
-    MIX_ENV=prod
-WORKDIR ${APP_HOME}
-COPY --from=release /app/skybeam/_build/prod/rel/ /app_release
-CMD ["/app_release/skybeam/bin/skybeam", "start"]
+
+# Copy release from build stage
+COPY --from=build /app/_build/prod/rel/skybeam /app
+
+# Create non-root user
+RUN groupadd -g 1000 app && \
+    useradd -u 1000 -g app -s /bin/bash -m app && \
+    chown -R app:app /app
+
+USER app
+
+# Expose port
+EXPOSE 4000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD pgrep -f "beam" > /dev/null || exit 1
+
+# Run the release
+ENTRYPOINT ["/app/bin/skybeam"]
+CMD ["start"]
 

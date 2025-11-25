@@ -4,7 +4,7 @@
 
 set -e
 
-REGISTRY_USER="${REGISTRY_USER:-lbrenews}"
+REGISTRY_USER="${REGISTRY_USER:-librenews}"
 REGISTRY_PASSWORD="${REGISTRY_PASSWORD:-}"
 
 if [ -z "$REGISTRY_PASSWORD" ]; then
@@ -17,16 +17,14 @@ echo "Logging in to Docker Hub..."
 echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USER" --password-stdin
 
 echo "Building and pushing skybeam..."
-docker build -f docker/skybeam/Dockerfile --target production -t "$REGISTRY_USER/skybeam:latest" .
-docker push "$REGISTRY_USER/skybeam:latest"
+# Note: skybeam builds on the server to avoid cross-compilation issues
+./scripts/build-skybeam-remote.sh
 
 echo "Building and pushing skytorch..."
-docker build -f docker/skytorch/Dockerfile --target production -t "$REGISTRY_USER/skytorch:latest" .
-docker push "$REGISTRY_USER/skytorch:latest"
+docker buildx build --platform linux/amd64 -f docker/skytorch/Dockerfile --target production -t "$REGISTRY_USER/skytorch:latest" --push .
 
 echo "Building and pushing skywire..."
-docker build -f docker/skywire/Dockerfile --target production -t "$REGISTRY_USER/skywire:latest" .
-docker push "$REGISTRY_USER/skywire:latest"
+docker buildx build --platform linux/amd64 -f docker/skywire/Dockerfile --target production -t "$REGISTRY_USER/skywire:latest" --push .
 
 echo "All images built and pushed successfully!"
 echo ""

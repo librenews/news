@@ -2,7 +2,7 @@
 service: news
 
 # Name of the container image for the main Rails app.
-image: lbrenews/feedbrainer
+image: librenews/feedbrainer
 
 # Deploy to these servers.
 servers:
@@ -18,10 +18,11 @@ servers:
 proxy:
   ssl: true
   host: open.news
+  app_port: 3000
 
 # Credentials for your image host (Docker Hub)
 registry:
-  username: lbrenews
+  username: librenews
   password:
     - KAMAL_REGISTRY_PASSWORD
 
@@ -51,7 +52,8 @@ volumes:
   - "feedbrainer_storage:/rails/storage"
 
 # Bridge fingerprinted assets between versions
-asset_path: /rails/public/assets
+# Temporarily disabled until assets are properly precompiled
+# asset_path: /app/feedbrainer/public/assets
 
 # Configure the image builder
 builder:
@@ -71,8 +73,7 @@ ssh:
 accessories:
   db:
     image: pgvector/pgvector:pg16
-    host: 164.90.132.64
-    port: "127.0.0.1:5432:5432"
+    hosts: [164.90.132.64]
     options:
       network: news-app
     env:
@@ -88,8 +89,8 @@ accessories:
 
   redis:
     image: redis:7.4-alpine
-    host: 164.90.132.64
-    port: "127.0.0.1:6379:6379"
+    hosts: [164.90.132.64]
+
     options:
       network: news-app
     volumes:
@@ -98,21 +99,23 @@ accessories:
     cmd: redis-server /usr/local/etc/redis/redis.conf
 
   skybeam:
-    image: lbrenews/skybeam
-    host: 164.90.132.64
-    port: "127.0.0.1:4000:4000"
+    image: librenews/skybeam
+    hosts: [164.90.132.64]
+
     options:
       network: news-app
     env:
       clear:
         MIX_ENV: prod
         DATABASE_URL: postgres://feedbrainer:feedbrainer_prod_2024@news-db:5432/feedbrainer_production
-    cmd: /app_release/skybeam/bin/skybeam start
+        SECRET_KEY_BASE: df65eecdeae36df5618da66896115a1c6cc6f2132c77f5057d790e602b4965056ebf72f8ca7fcf20da0bc50c40d115015d6f682fe8638ea7cf15e6e717db2fa6
+        PHX_SERVER: true
+    cmd: start
 
   skytorch:
-    image: lbrenews/skytorch
-    host: 164.90.132.64
-    port: "127.0.0.1:5000:5000"
+    image: librenews/skytorch
+    hosts: [164.90.132.64]
+
     options:
       network: news-app
     env:
@@ -133,9 +136,9 @@ accessories:
     cmd: uvicorn skytorch.main:app --host 0.0.0.0 --port 5000
 
   skywire:
-    image: lbrenews/skywire
-    host: 164.90.132.64
-    port: "127.0.0.1:6000:6000"
+    image: librenews/skywire
+    hosts: [164.90.132.64]
+
     options:
       network: news-app
     env:
