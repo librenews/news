@@ -10,10 +10,38 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_25_202118) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_25_213022) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
+
+  create_table "article_posts", force: :cascade do |t|
+    t.bigint "article_id", null: false
+    t.bigint "post_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id", "post_id"], name: "index_article_posts_on_article_id_and_post_id", unique: true
+    t.index ["article_id"], name: "index_article_posts_on_article_id"
+    t.index ["post_id"], name: "index_article_posts_on_post_id"
+  end
+
+  create_table "articles", force: :cascade do |t|
+    t.text "title", null: false
+    t.text "url", null: false
+    t.text "summary"
+    t.datetime "published_at"
+    t.text "author"
+    t.text "description"
+    t.text "image_url"
+    t.text "html_content"
+    t.text "body_text"
+    t.jsonb "entities"
+    t.jsonb "jsonld_data"
+    t.jsonb "og_metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["url"], name: "index_articles_on_url", unique: true
+  end
 
   create_table "posts", force: :cascade do |t|
     t.bigint "source_id", null: false
@@ -47,6 +75,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_25_202118) do
     t.index ["atproto_did"], name: "index_users_on_atproto_did", unique: true
   end
 
+  add_foreign_key "article_posts", "articles"
+  add_foreign_key "article_posts", "posts"
   add_foreign_key "posts", "sources"
   add_foreign_key "user_sources", "sources"
   add_foreign_key "user_sources", "users"
