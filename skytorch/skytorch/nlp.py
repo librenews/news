@@ -1,7 +1,7 @@
 """Natural Language Processing utilities using spacy and sentence-transformers."""
 
 import os
-from typing import Optional
+from typing import Optional, List
 
 try:
     import spacy
@@ -115,6 +115,40 @@ def extract_named_entities(text: str, model_name: str = "en_core_web_sm"):
         })
     
     return entities
+
+
+def generate_embedding(text: str, model_name: str = "all-MiniLM-L6-v2") -> List[float]:
+    """
+    Generate embedding vector for text using sentence-transformers.
+    
+    Args:
+        text: Input text to generate embedding for
+        model_name: Name of the sentence transformer model to use
+        
+    Returns:
+        List of floats representing the embedding vector
+        
+    Raises:
+        ImportError: If sentence-transformers is not installed
+        ValueError: If text is empty or invalid
+    """
+    if not text or not text.strip():
+        raise ValueError("Text cannot be empty")
+    
+    if not HAS_NLP_DEPS:
+        raise ImportError(
+            "sentence-transformers is not installed. "
+            "Install it with: pip install sentence-transformers"
+        )
+    
+    # Get the sentence transformer model
+    model = get_sentence_transformer(model_name)
+    
+    # Generate embedding
+    embedding = model.encode(text, normalize_embeddings=True)
+    
+    # Convert numpy array to list of floats
+    return embedding.tolist()
 
 
 def initialize_nlp_models(

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import List
 
-from skytorch.nlp import extract_named_entities
+from skytorch.nlp import extract_named_entities, generate_embedding
 
 router = APIRouter()
 
@@ -35,6 +35,18 @@ async def api_root():
         "message": "Skytorch API",
         "version": "0.1.0",
     }
+
+
+class EmbeddingRequest(BaseModel):
+    """Request model for embedding generation."""
+    text: str = Field(..., description="Text to generate embedding for", min_length=1)
+    model_name: str = Field(default="all-MiniLM-L6-v2", description="Sentence transformer model name")
+
+
+class EmbeddingResponse(BaseModel):
+    """Response model for embeddings."""
+    embedding: List[float] = Field(..., description="Embedding vector as list of floats")
+    model_version: str = Field(..., description="Model name/version used")
 
 
 @router.post("/entities", response_model=EntitiesResponse, status_code=status.HTTP_200_OK)
@@ -72,5 +84,37 @@ async def extract_entities(request: TextRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing text: {str(e)}"
+        )
+
+
+@router.post("/embeddings", response_model=EmbeddingResponse, status_code=status.HTTP_200_OK)
+async def generate_embeddings(request: EmbeddingRequest):
+    """
+    Generate embedding vector for text.
+    
+    Accepts a POST request with text and returns an embedding vector
+    using sentence-transformers.
+    """
+    try:
+        embedding = generate_embedding(request.text, request.model_name)
+        
+        return EmbeddingResponse(
+            embedding=embedding,
+            model_version=request.model_name
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Embedding service not available: {str(e)}"
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating embedding: {str(e)}"
         )
 
