@@ -8,7 +8,8 @@ defmodule Skybeam.Firehose.Pipeline do
       name: __MODULE__,
       producer: [
         module: {Skybeam.Firehose.Producer, []},
-        concurrency: 1
+        concurrency: 1,
+        transformer: {__MODULE__, :transform, []}
       ],
       processors: [
         default: [
@@ -23,6 +24,13 @@ defmodule Skybeam.Firehose.Pipeline do
         ]
       ]
     )
+  end
+
+  def transform(event, _opts) do
+    %Broadway.Message{
+      data: event,
+      acknowledger: {Broadway.NoopAcknowledger, nil, nil}
+    }
   end
 
   @impl true
@@ -40,8 +48,11 @@ defmodule Skybeam.Firehose.Pipeline do
           Broadway.Message.failed(message, :not_relevant)
         end
 
-      {:ok, _other_event} ->
+      {:ok, other_event} ->
         # Not a post or missing required fields
+        collection = get_in(other_event, ["commit", "collection"])
+        did = Map.get(other_event, "did", "unknown")
+        Logger.info("Filtered out (wrong collection): collection=#{inspect(collection)}, did=#{did}")
         Broadway.Message.failed(message, :wrong_collection)
 
       {:error, reason} ->
@@ -60,20 +71,20 @@ defmodule Skybeam.Firehose.Pipeline do
           case Skybeam.Redis.push_to_queue(json) do
             :ok ->
               Logger.debug("Pushed message to Redis queue")
-            
+
             {:error, reason} ->
               Logger.error("Failed to push to Redis: #{inspect(reason)}")
           end
-        
+
         {:error, reason} ->
           Logger.error("Failed to encode message for Redis: #{inspect(reason)}")
       end
     end)
-    
+
     if length(messages) > 0 do
       Logger.info("Pushed #{length(messages)} messages to Redis queue")
     end
-    
+
     messages
   end
 end

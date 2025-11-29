@@ -18,7 +18,7 @@ defmodule Skybeam.Application do
       SkybeamWeb.Endpoint,
       Skybeam.Redis,
       Skybeam.SourceCache,
-      Skybeam.Firehose.Producer,
+      # Skybeam.Firehose.Producer is started by the Pipeline (Broadway)
       Skybeam.Firehose.Pipeline,
       Skybeam.Jetstream.Client
     ]

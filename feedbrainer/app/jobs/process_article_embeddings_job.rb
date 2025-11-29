@@ -77,7 +77,7 @@ class ProcessArticleEmbeddingsJob < ApplicationJob
       normalized_name = name.downcase.strip
       entity = Entity.find_or_create_by!(
         normalized_name: normalized_name,
-        type: entity_type
+        entity_type: entity_type
       ) do |e|
         e.name = name
       end

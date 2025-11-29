@@ -29,6 +29,14 @@ defmodule SkybeamWeb.Router do
     get "/health/live", HealthController, :live
   end
 
+  # Debug endpoints
+  scope "/debug", SkybeamWeb do
+    pipe_through :api
+
+    get "/cache/check", DebugController, :check_cache
+    post "/cache/refresh", DebugController, :refresh_cache
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", SkybeamWeb do
   #   pipe_through :api

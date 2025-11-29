@@ -57,6 +57,8 @@ class NewsDetectionService
         # Handle both single objects and arrays
         if parsed.is_a?(Array)
           jsonld_data.concat(parsed)
+        elsif parsed.is_a?(Hash) && parsed["@graph"].is_a?(Array)
+          jsonld_data.concat(parsed["@graph"])
         else
           jsonld_data << parsed
         end

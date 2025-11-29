@@ -3,7 +3,7 @@ defmodule Skybeam.SourceCache do
   require Logger
 
   @table_name :source_dids
-  @poll_interval :timer.seconds(10)
+  @refresh_interval 30_000
 
   # Client API
 
@@ -43,7 +43,7 @@ defmodule Skybeam.SourceCache do
   end
 
   defp schedule_refresh do
-    Process.send_after(self(), :refresh, @poll_interval)
+    Process.send_after(self(), :refresh, @refresh_interval)
   end
 
   defp refresh_dids do
@@ -97,6 +97,11 @@ defmodule Skybeam.SourceCache do
     :ets.delete_all_objects(@table_name)
     objects = Enum.map(dids, &{&1})
     :ets.insert(@table_name, objects)
+
+    # Verify contents
+    count = :ets.info(@table_name, :size)
+    Logger.info("SourceCache updated. Table size: #{count}")
+    Logger.info("Sample cached DIDs: #{inspect(Enum.take(dids, 5))}")
   end
 
   defp parse_feedbrainer_url(nil), do: nil

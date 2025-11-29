@@ -7,7 +7,17 @@ defmodule Skybeam.Firehose.Producer do
   end
 
   def notify_events(events) do
-    GenStage.cast(__MODULE__, {:notify, events})
+    # Find the producer process started by Broadway
+    producers = Broadway.producer_names(Skybeam.Firehose.Pipeline)
+    
+    case producers do
+      [producer_name] ->
+        GenStage.cast(producer_name, {:notify, events})
+      [] ->
+        Logger.warning("notify_events: No producers found for Skybeam.Firehose.Pipeline")
+      _ ->
+        Logger.warning("notify_events: Multiple producers found: #{inspect(producers)}")
+    end
   end
 
   @impl true
@@ -32,6 +42,7 @@ defmodule Skybeam.Firehose.Producer do
     # Dispatch as many as possible based on demand
     {events_to_dispatch, new_queue, new_demand} =
       take_events(queue, demand, [])
+
 
     {:noreply, events_to_dispatch, {new_queue, new_demand}}
   end

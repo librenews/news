@@ -14,7 +14,7 @@ class LinkDetectionService
     # Bluesky stores links in facets array
     # Each facet has a type and features array
     # Link facets have type "app.bsky.richtext.facet#link"
-    facets = @post_data.dig("record", "facets") || []
+    facets = @post_data.dig("commit", "record", "facets") || []
     
     facets.each do |facet|
       features = facet["features"] || []

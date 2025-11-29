@@ -3,9 +3,9 @@ class Entity < ApplicationRecord
   has_many :articles, through: :article_entities
 
   validates :name, presence: true
-  validates :type, presence: true, inclusion: { in: %w[PERSON ORG PLACE EVENT] }
+  validates :entity_type, presence: true, inclusion: { in: %w[PERSON ORG PLACE EVENT] }
   validates :normalized_name, presence: true
-  validates :normalized_name, uniqueness: { scope: :type }
+  validates :normalized_name, uniqueness: { scope: :entity_type }
 
   before_validation :normalize_name
 
