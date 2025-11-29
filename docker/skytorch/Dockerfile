@@ -11,18 +11,19 @@ WORKDIR ${APP_HOME}
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      build-essential \
-      curl \
-      libpq-dev \
-      gcc \
-      g++ \
-      && \
+    build-essential \
+    curl \
+    libpq-dev \
+    gcc \
+    g++ \
+    && \
     rm -rf /var/lib/apt/lists/*
 
 COPY skytorch/pyproject.toml skytorch/poetry.lock* ./ 
 RUN pip install --upgrade pip && \
     pip install poetry && \
-    poetry install --only main
+    poetry install --only main && \
+    python -m spacy download en_core_web_sm
 
 FROM base AS dev
 ENV ENVIRONMENT=development

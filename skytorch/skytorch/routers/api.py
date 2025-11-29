@@ -1,10 +1,11 @@
 """Main API endpoints."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 from skytorch.nlp import extract_named_entities, generate_embedding
+from skytorch.atproto_client import get_atproto_client
 
 router = APIRouter()
 
@@ -116,5 +117,143 @@ async def generate_embeddings(request: EmbeddingRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating embedding: {str(e)}"
+        )
+
+
+class FollowProfile(BaseModel):
+    """Model for a follow profile."""
+    did: str = Field(..., description="Decentralized Identifier")
+    handle: Optional[str] = Field(None, description="User handle")
+    display_name: Optional[str] = Field(None, description="Display name")
+    avatar: Optional[str] = Field(None, description="Avatar URL")
+
+
+class FollowsResponse(BaseModel):
+    """Response model for follows."""
+    follows: List[FollowProfile] = Field(..., description="List of profiles the user follows")
+    count: int = Field(..., description="Total number of follows")
+    cursor: Optional[str] = Field(None, description="Cursor for pagination")
+
+
+class FollowersResponse(BaseModel):
+    """Response model for followers."""
+    followers: List[FollowProfile] = Field(..., description="List of profiles that follow the user")
+    count: int = Field(..., description="Total number of followers")
+    cursor: Optional[str] = Field(None, description="Cursor for pagination")
+
+
+@router.get("/follows", response_model=FollowsResponse, status_code=status.HTTP_200_OK)
+async def get_follows(
+    did: str = Query(..., description="Decentralized Identifier to get follows for"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of results to return"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination")
+):
+    """
+    Get the list of profiles that a user follows.
+    
+    Returns an array of profiles (DIDs) that the specified user follows.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's get_follows method
+        # According to atproto.blue docs, these are direct methods on the client
+        result = client.get_follows(actor=did, limit=limit, cursor=cursor)
+        
+        # Extract profile information
+        # atproto returns profiles with camelCase attributes
+        follows = []
+        for profile in result.follows:
+            # Handle both camelCase and snake_case attribute names
+            display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+            avatar_url = None
+            avatar_attr = getattr(profile, 'avatar', None)
+            if avatar_attr:
+                avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+            
+            follows.append(FollowProfile(
+                did=profile.did,
+                handle=getattr(profile, 'handle', None),
+                display_name=display_name,
+                avatar=avatar_url
+            ))
+        
+        return FollowsResponse(
+            follows=follows,
+            count=len(follows),
+            cursor=getattr(result, 'cursor', None)
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching follows: {str(e)}"
+        )
+
+
+@router.get("/followers", response_model=FollowersResponse, status_code=status.HTTP_200_OK)
+async def get_followers(
+    did: str = Query(..., description="Decentralized Identifier to get followers for"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of results to return"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination")
+):
+    """
+    Get the list of profiles that follow a user.
+    
+    Returns an array of profiles (DIDs) that follow the specified user.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's get_followers method
+        # According to atproto.blue docs, these are direct methods on the client
+        result = client.get_followers(actor=did, limit=limit, cursor=cursor)
+        
+        # Extract profile information
+        # atproto returns profiles with camelCase attributes
+        followers = []
+        for profile in result.followers:
+            # Handle both camelCase and snake_case attribute names
+            display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+            avatar_url = None
+            avatar_attr = getattr(profile, 'avatar', None)
+            if avatar_attr:
+                avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+            
+            followers.append(FollowProfile(
+                did=profile.did,
+                handle=getattr(profile, 'handle', None),
+                display_name=display_name,
+                avatar=avatar_url
+            ))
+        
+        return FollowersResponse(
+            followers=followers,
+            count=len(followers),
+            cursor=getattr(result, 'cursor', None)
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching followers: {str(e)}"
         )
 
