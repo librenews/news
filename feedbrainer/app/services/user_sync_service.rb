@@ -36,10 +36,17 @@ class UserSyncService
         
         if user.nil?
           # User doesn't exist, create it
-          user = User.create!(atproto_did: did)
+          profile_data = extract_profile_from_follower(follower)
+          user = User.create!(atproto_did: did, profile: profile_data)
           Rails.logger.info("Created new user with DID: #{did}")
           new_users_count += 1
           # The after_create callback will enqueue SyncUserFollowsJob
+        else
+          # Update profile if we have new data
+          profile_data = extract_profile_from_follower(follower)
+          if profile_data.present?
+            user.update(profile: profile_data)
+          end
         end
       end
 
@@ -83,6 +90,13 @@ class UserSyncService
 
     Rails.logger.info("Fetched #{all_follows.length} follows for user #{user.id}")
 
+    # Update user's own profile if we have it from the API response
+    # (The get_follows call might include the user's profile in the response)
+    # Otherwise, fetch it if missing
+    if user.profile.blank? || user.profile.empty?
+      fetch_and_store_profile(user, user.atproto_did)
+    end
+
     # Get current UserSources for this user
     current_source_dids = user.sources.pluck(:atproto_did).compact.to_set
     new_follow_dids = all_follows.map { |f| f["did"] }.compact.to_set
@@ -91,9 +105,29 @@ class UserSyncService
     sources_to_add = new_follow_dids - current_source_dids
     sources_to_remove = current_source_dids - new_follow_dids
 
-    # Create Sources for new follows
+    # Create Sources for new follows and update profiles
     sources_to_add.each do |did|
-      source = Source.find_or_create_by(atproto_did: did)
+      # Find the follow data to extract profile info
+      follow_data = all_follows.find { |f| f["did"] == did }
+      
+      # Check if source already exists
+      source = Source.find_by(atproto_did: did)
+      was_new = source.nil?
+      
+      if source.nil?
+        # Create new source with profile data
+        profile_data = follow_data ? extract_profile_from_follow(follow_data) : {}
+        source = Source.create!(atproto_did: did, profile: profile_data)
+      else
+        # Update existing source's profile if we have new data
+        if follow_data
+          profile_data = extract_profile_from_follow(follow_data)
+          if profile_data.present?
+            source.update(profile: profile_data)
+          end
+        end
+      end
+      
       UserSource.find_or_create_by(user: user, source: source)
       Rails.logger.debug("Added follow: #{did}")
     end
@@ -139,6 +173,44 @@ class UserSyncService
     Rails.logger.error("Error in sync_all_users_follows: #{e.message}")
     Rails.logger.error(e.backtrace.join("\n"))
     { processed: 0, total: 0 }
+  end
+
+  private
+
+  def extract_profile_from_follower(follower)
+    return {} unless follower.is_a?(Hash)
+    
+    {
+      "did" => follower["did"],
+      "handle" => follower["handle"],
+      "display_name" => follower["display_name"],
+      "avatar" => follower["avatar"]
+    }.compact
+  end
+
+  def extract_profile_from_follow(follow)
+    return {} unless follow.is_a?(Hash)
+    
+    {
+      "did" => follow["did"],
+      "handle" => follow["handle"],
+      "display_name" => follow["display_name"],
+      "avatar" => follow["avatar"]
+    }.compact
+  end
+
+  def fetch_and_store_profile(record, did)
+    return unless did.present?
+
+    result = SkytorchClient.get_profile(did)
+    if result[:success] && result[:profile]
+      record.update(profile: result[:profile])
+      Rails.logger.debug("Fetched and stored profile for #{record.class.name} #{record.id}")
+    else
+      Rails.logger.warn("Failed to fetch profile for #{did}: #{result[:error]}")
+    end
+  rescue => e
+    Rails.logger.error("Error fetching profile for #{did}: #{e.message}")
   end
 end
 

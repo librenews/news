@@ -19,6 +19,10 @@ class SkytorchClient
     new.get_follows(did, limit: limit, cursor: cursor)
   end
 
+  def self.get_profile(did)
+    new.get_profile(did)
+  end
+
   def initialize
     @base_url = ENV.fetch("SKYTORCH_URL", "http://skytorch:5000")
   end
@@ -162,6 +166,39 @@ class SkytorchClient
     end
   rescue => e
     Rails.logger.error("SkytorchClient.get_follows error: #{e.message}")
+    {
+      success: false,
+      error: e.message
+    }
+  end
+
+  def get_profile(did)
+    uri = URI.parse("#{@base_url}/api/v1/profile")
+    uri.query = URI.encode_www_form({ did: did })
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.open_timeout = 30
+    http.read_timeout = 60
+
+    request = Net::HTTP::Get.new(uri.request_uri)
+    request["Content-Type"] = "application/json"
+
+    response = http.request(request)
+
+    if response.code.to_i >= 200 && response.code.to_i < 300
+      data = JSON.parse(response.body)
+      {
+        success: true,
+        profile: data
+      }
+    else
+      {
+        success: false,
+        error: "HTTP #{response.code}: #{response.body}"
+      }
+    end
+  rescue => e
+    Rails.logger.error("SkytorchClient.get_profile error: #{e.message}")
     {
       success: false,
       error: e.message
