@@ -142,6 +142,25 @@ class FollowersResponse(BaseModel):
     cursor: Optional[str] = Field(None, description="Cursor for pagination")
 
 
+class ResolveHandleResponse(BaseModel):
+    """Response model for handle resolution."""
+    did: str = Field(..., description="Decentralized Identifier")
+    handle: Optional[str] = Field(None, description="User handle")
+
+
+class ProfileResponse(BaseModel):
+    """Response model for user profile."""
+    did: str = Field(..., description="Decentralized Identifier")
+    handle: Optional[str] = Field(None, description="User handle")
+    display_name: Optional[str] = Field(None, description="Display name")
+    description: Optional[str] = Field(None, description="Profile description/bio")
+    avatar: Optional[str] = Field(None, description="Avatar URL")
+    banner: Optional[str] = Field(None, description="Banner image URL")
+    followers_count: Optional[int] = Field(None, description="Number of followers")
+    follows_count: Optional[int] = Field(None, description="Number of follows")
+    posts_count: Optional[int] = Field(None, description="Number of posts")
+
+
 @router.get("/follows", response_model=FollowsResponse, status_code=status.HTTP_200_OK)
 async def get_follows(
     did: str = Query(..., description="Decentralized Identifier to get follows for"),
@@ -255,5 +274,131 @@ async def get_followers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching followers: {str(e)}"
+        )
+
+
+@router.get("/resolve_handle", response_model=ResolveHandleResponse, status_code=status.HTTP_200_OK)
+async def resolve_handle(
+    handle: str = Query(..., description="Bluesky handle to resolve (e.g., 'open.news')")
+):
+    """
+    Resolve a Bluesky handle to a DID.
+    
+    Takes a handle (e.g., 'open.news') and returns the corresponding DID.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's resolve_handle method
+        result = client.resolve_handle(handle=handle)
+        
+        return ResolveHandleResponse(
+            did=result.did,
+            handle=getattr(result, 'handle', handle)
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        error_message = str(e)
+        # Check if it's a "handle not found" type error
+        if "not found" in error_message.lower() or "invalid" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Handle not found: {handle}"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error resolving handle: {error_message}"
+        )
+
+
+@router.get("/profile", response_model=ProfileResponse, status_code=status.HTTP_200_OK)
+async def get_profile(
+    did: str = Query(..., description="Decentralized Identifier to get profile for")
+):
+    """
+    Get a user's profile information from a DID.
+    
+    Returns profile information including display name, description, avatar, banner,
+    and follower/follow/post counts.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's get_profile method
+        result = client.get_profile(actor=did)
+        
+        # Extract profile information
+        # Handle both camelCase and snake_case attribute names
+        display_name = getattr(result, 'displayName', None) or getattr(result, 'display_name', None)
+        description = getattr(result, 'description', None)
+        
+        # Extract avatar URL
+        avatar_url = None
+        avatar_attr = getattr(result, 'avatar', None)
+        if avatar_attr:
+            if hasattr(avatar_attr, 'ref') and hasattr(avatar_attr.ref, 'get'):
+                avatar_url = avatar_attr.ref.get('$link')
+            elif hasattr(avatar_attr, 'ref'):
+                avatar_url = str(getattr(avatar_attr.ref, '$link', avatar_attr))
+            else:
+                avatar_url = str(avatar_attr)
+        
+        # Extract banner URL
+        banner_url = None
+        banner_attr = getattr(result, 'banner', None)
+        if banner_attr:
+            if hasattr(banner_attr, 'ref') and hasattr(banner_attr.ref, 'get'):
+                banner_url = banner_attr.ref.get('$link')
+            elif hasattr(banner_attr, 'ref'):
+                banner_url = str(getattr(banner_attr.ref, '$link', banner_attr))
+            else:
+                banner_url = str(banner_attr)
+        
+        # Extract counts
+        followers_count = getattr(result, 'followersCount', None) or getattr(result, 'followers_count', None)
+        follows_count = getattr(result, 'followsCount', None) or getattr(result, 'follows_count', None)
+        posts_count = getattr(result, 'postsCount', None) or getattr(result, 'posts_count', None)
+        
+        return ProfileResponse(
+            did=result.did,
+            handle=getattr(result, 'handle', None),
+            display_name=display_name,
+            description=description,
+            avatar=avatar_url,
+            banner=banner_url,
+            followers_count=followers_count,
+            follows_count=follows_count,
+            posts_count=posts_count
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        error_message = str(e)
+        # Check if it's a "profile not found" type error
+        if "not found" in error_message.lower() or "invalid" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Profile not found for DID: {did}"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching profile: {error_message}"
         )
 
