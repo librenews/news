@@ -124,6 +124,15 @@ class NewsDetectionService
         return item["description"]
       end
     end
+
+    # Fallback: Try og:description
+    og_description_match = @html_content.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
+    return og_description_match[1].strip if og_description_match
+
+    # Fallback: Try standard description meta tag
+    description_match = @html_content.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
+    return description_match[1].strip if description_match
+
     nil
   end
 

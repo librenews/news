@@ -1,4 +1,81 @@
-<h1>Feedbrainer</h1>
+<div class="news-homepage">
+  <header class="news-header">
+    <h1>Open News</h1>
+    <p class="subtitle">Top stories from your Bluesky feed</p>
+  </header>
 
-<%= image_tag "fb-icon.png", alt: "Feedbrainer Icon", class: "fb-icon" %>
-
+  <% if @articles.empty? %>
+    <div class="empty-state">
+      <p>No articles yet. Articles will appear here as they're shared on Bluesky.</p>
+    </div>
+  <% else %>
+    <div class="articles-container">
+      <% @articles.each do |article| %>
+      <article class="article-card">
+        <div class="article-content">
+          <% if article.image_url.present? %>
+            <div class="article-image">
+              <%= image_tag article.image_url, alt: article.title, loading: "lazy" %>
+            </div>
+          <% end %>
+          
+          <div class="article-text">
+            <h2 class="article-title">
+              <%= link_to article.title, article.url, target: "_blank", rel: "noopener noreferrer" %>
+            </h2>
+            
+            <% if article.summary.present? %>
+              <p class="article-summary"><%= truncate(article.summary, length: 200) %></p>
+            <% elsif article.description.present? %>
+              <p class="article-summary"><%= truncate(article.description, length: 200) %></p>
+            <% end %>
+            
+            <div class="article-meta">
+              <% if article.published_at.present? %>
+                <span class="article-date"><%= time_ago_in_words(article.published_at) %> ago</span>
+              <% end %>
+              <% if article.author.present? %>
+                <span class="article-author">by <%= article.author %></span>
+              <% end %>
+            </div>
+          </div>
+        </div>
+        
+        <div class="article-sources">
+          <div class="sources-label">Shared by:</div>
+          <div class="source-avatars">
+            <% article.posts.includes(:source).limit(20).each do |post| %>
+              <% source = post.source %>
+              <% handle = source.profile&.dig("handle") || source.atproto_did %>
+              <% avatar_url = source.profile&.dig("avatar") %>
+              <% rkey = post.post&.dig("commit", "rkey") %>
+              
+              <% if rkey && handle %>
+                <% bluesky_url = "https://bsky.app/profile/#{handle}/post/#{rkey}" %>
+                <% display_name = source.profile&.dig("display_name") || handle %>
+                <a href="<%= bluesky_url %>" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   class="source-avatar-link"
+                   title="<%= display_name %>">
+                  <% if avatar_url.present? %>
+                    <%= image_tag avatar_url, alt: display_name, class: "source-avatar", loading: "lazy" %>
+                  <% else %>
+                    <div class="source-avatar-placeholder" title="<%= display_name %>">
+                      <%= (display_name.presence || handle).first.upcase %>
+                    </div>
+                  <% end %>
+                </a>
+              <% end %>
+            <% end %>
+          </div>
+          <% share_count = article.respond_to?(:share_count) ? article.share_count : article.posts.count %>
+          <% if share_count > 20 %>
+            <span class="more-sources">+<%= share_count - 20 %> more</span>
+          <% end %>
+        </div>
+      </article>
+      <% end %>
+    </div>
+  <% end %>
+</div>

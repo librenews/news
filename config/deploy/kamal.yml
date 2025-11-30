@@ -13,6 +13,16 @@ servers:
       network: news-app
     labels:
       app: feedbrainer
+  
+  worker:
+    hosts:
+      - 164.90.132.64
+    cmd: bundle exec sidekiq
+    options:
+      network: news-app
+    env:
+      clear:
+        DB_POOL: 5
 
 # Enable SSL auto certification via Let's Encrypt
 proxy:
@@ -33,7 +43,6 @@ env:
     - POSTGRES_PASSWORD
   clear:
     RAILS_ENV: production
-    SOLID_QUEUE_IN_PUMA: true
     DATABASE_URL: postgres://feedbrainer:feedbrainer_prod_2024@news-db:5432/feedbrainer_production
     REDIS_URL: redis://news-redis:6379/0
     SKYBEAM_URL: http://news-skybeam:4000
