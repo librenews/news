@@ -42,6 +42,21 @@ services:
       - ./feedbrainer:/app/feedbrainer
     command: bundle exec ruby script/firehose_consumer.rb
 
+  feedbrainer_worker:
+    image: news-feedbrainer
+    env_file:
+      - config/env/dev.env
+    environment:
+      DATABASE_URL: postgres://feedbrainer:feedbrainer@postgres:5432/feedbrainer_dev
+      REDIS_URL: redis://redis:6379/0
+      PROCESS_TYPE: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./feedbrainer:/app/feedbrainer
+    command: bundle exec sidekiq
+
   skybeam:
     build:
       context: .

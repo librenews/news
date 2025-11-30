@@ -2,8 +2,8 @@
 # This ensures the jobs run even after server restarts
 
 Rails.application.config.after_initialize do
-  # Only schedule if we're not in a rake task or console
-  next if defined?(Rails::Console) || File.basename($0) == "rake"
+  # Only schedule if we're not in a rake task, console, or worker process
+  next if defined?(Rails::Console) || File.basename($0) == "rake" || ENV['PROCESS_TYPE'] == 'worker'
 
   # Use a simple flag to avoid scheduling duplicates on multiple workers
   # The jobs themselves handle rescheduling, so this just ensures they start
