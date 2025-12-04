@@ -15,7 +15,7 @@
         <div class="article-content <%= 'no-image' unless article.image_url.present? %>">
           <% if article.image_url.present? %>
             <div class="article-image">
-              <%= image_tag article.image_url, alt: article.title, loading: "lazy" %>
+              <img src="<%= article.image_url %>" alt="<%= article.title %>" loading="lazy" />
             </div>
           <% end %>
           
