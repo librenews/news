@@ -44,14 +44,40 @@
         <div class="article-sources">
           <div class="sources-label">Shared by:</div>
           <div class="source-avatars">
-            <% article.posts.includes(:source).limit(20).each do |post| %>
+            <%# Group posts by source to show each source only once %>
+            <% distinct_sources = article.posts.includes(:source).group_by(&:source_id).values.map(&:first).first(20) %>
+            <% distinct_sources.each do |post| %>
               <% source = post.source %>
               <% handle = source.profile&.dig("handle") || source.atproto_did %>
               <% avatar_url = source.profile&.dig("avatar") %>
-              <% rkey = post.post&.dig("commit", "rkey") %>
+              <% bluesky_url = nil %>
               
-              <% if rkey && handle %>
-                <% bluesky_url = "https://bsky.app/profile/#{handle}/post/#{rkey}" %>
+              <%# Check if this is a repost - if so, link to the original post %>
+              <% collection = post.post&.dig("commit", "collection") %>
+              <% if collection == "app.bsky.feed.repost" %>
+                <%# Extract original post URI from repost subject %>
+                <% subject_uri = post.post&.dig("commit", "record", "subject", "uri") %>
+                <% if subject_uri.present? %>
+                  <%# Parse AT URI: at://did/app.bsky.feed.post/rkey %>
+                  <% uri_match = subject_uri.match(/\Aat:\/\/([^\/]+)\/([^\/]+)\/([^\/]+)\z/) %>
+                  <% if uri_match %>
+                    <% original_did = uri_match[1] %>
+                    <% original_rkey = uri_match[3] %>
+                    <%# Try to find the original source to get its handle %>
+                    <% original_source = Source.find_by(atproto_did: original_did) %>
+                    <% original_handle = original_source&.profile&.dig("handle") || original_did %>
+                    <% bluesky_url = "https://bsky.app/profile/#{original_handle}/post/#{original_rkey}" %>
+                  <% end %>
+                <% end %>
+              <% else %>
+                <%# Regular post - use its own rkey %>
+                <% rkey = post.post&.dig("commit", "rkey") %>
+                <% if rkey && handle %>
+                  <% bluesky_url = "https://bsky.app/profile/#{handle}/post/#{rkey}" %>
+                <% end %>
+              <% end %>
+              
+              <% if bluesky_url.present? %>
                 <% display_name = source.profile&.dig("display_name") || handle %>
                 <a href="<%= bluesky_url %>" 
                    target="_blank" 
@@ -70,9 +96,10 @@
               <% end %>
             <% end %>
           </div>
-          <% share_count = article.respond_to?(:share_count) ? article.share_count : article.posts.count %>
-          <% if share_count > 20 %>
-            <span class="more-sources">+<%= share_count - 20 %> more</span>
+          <%# Count distinct sources, not total posts %>
+          <% distinct_source_count = article.posts.distinct.count(:source_id) %>
+          <% if distinct_source_count > 20 %>
+            <span class="more-sources">+<%= distinct_source_count - 20 %> more</span>
           <% end %>
         </div>
       </article>
