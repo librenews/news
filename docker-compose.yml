@@ -33,6 +33,8 @@ services:
     environment:
       DATABASE_URL: postgres://feedbrainer:feedbrainer@postgres:5432/feedbrainer_dev
       REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: development
+      BUNDLE_WITHOUT: ""
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,7 +42,29 @@ services:
         condition: service_started
     volumes:
       - ./feedbrainer:/app/feedbrainer
-    command: bundle exec ruby script/firehose_consumer.rb
+    command: sh -c "bundle install && bundle exec ruby script/firehose_consumer.rb"
+
+  feedbrainer_worker:
+    build:
+      context: .
+      dockerfile: docker/feedbrainer/Dockerfile
+      target: dev
+    env_file:
+      - config/env/dev.env
+    environment:
+      DATABASE_URL: postgres://feedbrainer:feedbrainer@postgres:5432/feedbrainer_dev
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: development
+      BUNDLE_WITHOUT: ""
+      PROCESS_TYPE: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./feedbrainer:/app/feedbrainer
+    command: sh -c "bundle install && bundle exec sidekiq"
 
   skybeam:
     build:

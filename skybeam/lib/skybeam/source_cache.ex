@@ -60,24 +60,21 @@ defmodule Skybeam.SourceCache do
   end
 
   defp fetch_dids do
-    url = System.get_env("DATABASE_URL") |> parse_feedbrainer_url()
-
-    # In dev/test we might want to fallback or mock, but for now we assume env var is set correctly
-    # or we construct it from a known service URL.
-    # Actually, we should use a dedicated env var for the feedbrainer URL.
-    # Let's assume FEEDBRAINER_URL is set, or default to http://feedbrainer:3000
-
     base_url = System.get_env("FEEDBRAINER_URL") || "http://feedbrainer:3000"
     url = "#{base_url}/api/sources"
+    Logger.info("Fetching DIDs from: #{url}")
 
     case Req.get(url) do
       {:ok, %Req.Response{status: 200, body: body}} when is_list(body) ->
+        Logger.info("Fetched #{length(body)} DIDs")
         {:ok, body}
 
-      {:ok, %Req.Response{status: status}} ->
+      {:ok, %Req.Response{status: status, body: body}} ->
+        Logger.error("Feedbrainer API returned status #{status}. Body: #{inspect(body)}")
         {:error, "Feedbrainer API returned status #{status}"}
 
       {:error, exception} ->
+        Logger.error("Req failed: #{inspect(exception)}")
         {:error, exception}
     end
   end

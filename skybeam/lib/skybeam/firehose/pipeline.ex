@@ -37,7 +37,7 @@ defmodule Skybeam.Firehose.Pipeline do
   def handle_message(_processor, message, _context) do
     # Decode JSON in parallel across Broadway processors
     case Jason.decode(message.data) do
-      {:ok, %{"commit" => %{"collection" => "app.bsky.feed.post"}, "did" => did} = event} ->
+      {:ok, %{"commit" => %{"collection" => collection}, "did" => did} = event} when collection in ["app.bsky.feed.post", "app.bsky.feed.repost"] ->
         # Check if this DID is in our source cache
         if SourceCache.exists?(did) do
           Logger.info("Relevant post found from DID: #{did}")

@@ -12,26 +12,36 @@ class ProcessPostJob < ApplicationJob
     # 2. Fetch each link
     links.each do |link|
       fetch_result = FetchLinkService.call(link)
-      next unless fetch_result[:success]
+      unless fetch_result[:success]
+        Rails.logger.warn("ProcessPostJob: Failed to fetch #{link}: #{fetch_result[:error]}")
+        next
+      end
       
       # 3. Check if it's a news article and extract metadata
       news_result = NewsDetectionService.call(fetch_result[:html_content], link)
-      next unless news_result[:is_news_article]
+      unless news_result[:is_news_article]
+        Rails.logger.info("ProcessPostJob: #{link} is not a news article")
+        next
+      end
       
-      # 4. Create Article and ArticlePost
-      article = Article.create!(
-        title: news_result[:title] || link,
-        url: link,
-        html_content: fetch_result[:html_content],
-        jsonld_data: news_result[:jsonld_data], # Array of JSON-LD objects
-        published_at: news_result[:published_at],
-        author: news_result[:author],
-        description: news_result[:description],
-        image_url: news_result[:image_url],
-        body_text: news_result[:body_text]
-      )
+      # 4. Find or Create Article
+      article = Article.find_or_initialize_by(url: link)
       
-      ArticlePost.create!(post: post, article: article)
+      if article.new_record?
+        article.assign_attributes(
+          title: news_result[:title] || link,
+          html_content: fetch_result[:html_content],
+          jsonld_data: news_result[:jsonld_data],
+          published_at: news_result[:published_at],
+          author: news_result[:author],
+          description: news_result[:description],
+          image_url: news_result[:image_url],
+          body_text: news_result[:body_text]
+        )
+        article.save!
+      end
+      
+      ArticlePost.find_or_create_by!(post: post, article: article)
     end
   end
 end

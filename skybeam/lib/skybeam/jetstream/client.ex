@@ -2,7 +2,7 @@ defmodule Skybeam.Jetstream.Client do
   use WebSockex
   require Logger
 
-  @url "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
+  @url "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post&wantedCollections=app.bsky.feed.repost"
 
   def start_link(_opts) do
     # Add headers that might be expected by Jetstream
