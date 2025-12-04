@@ -128,7 +128,7 @@ class UserSyncService
         end
       end
       
-      UserSource.find_or_create_by(user: user, source: source)
+      UserSource.find_or_create_by(user: user, source: source, relationship_type: :direct_follow)
       Rails.logger.debug("Added follow: #{did}")
     end
 
@@ -140,6 +140,10 @@ class UserSyncService
     end
 
     Rails.logger.info("Sync complete for user #{user.id}. Added: #{sources_to_add.length}, Removed: #{sources_to_remove.length}")
+    
+    # Compute friend-of-friend relationships after syncing direct follows
+    FriendOfFriendService.compute_for_user(user)
+    
     {
       added: sources_to_add.length,
       removed: sources_to_remove.length,

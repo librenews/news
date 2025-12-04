@@ -17,7 +17,8 @@ _atproto_client: Optional[object] = None
 
 def get_atproto_client(
     handle: Optional[str] = None,
-    password: Optional[str] = None
+    password: Optional[str] = None,
+    force_refresh: bool = False
 ) -> Optional[object]:
     """
     Get or create an AT Protocol client.
@@ -25,6 +26,7 @@ def get_atproto_client(
     Args:
         handle: Bluesky handle (e.g., 'user.bsky.social')
         password: App password for authentication
+        force_refresh: Force re-authentication even if client exists
         
     Returns:
         Authenticated AT Protocol client, or None if credentials not provided
@@ -46,11 +48,21 @@ def get_atproto_client(
     if not handle or not password:
         return None
     
-    if _atproto_client is None:
+    # Force refresh or create new client if needed
+    if force_refresh or _atproto_client is None:
         _atproto_client = Client()
         _atproto_client.login(handle, password)
     
     return _atproto_client
+
+
+def reset_atproto_client():
+    """
+    Reset the global AT Protocol client, forcing re-authentication on next use.
+    Use this when you get InvalidToken errors.
+    """
+    global _atproto_client
+    _atproto_client = None
 
 
 def initialize_atproto_client():

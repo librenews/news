@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_30_133939) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_30_194314) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -226,6 +226,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_30_133939) do
     t.bigint "source_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "relationship_type", default: 1, null: false
+    t.index ["relationship_type"], name: "index_user_sources_on_relationship_type"
     t.index ["source_id"], name: "index_user_sources_on_source_id"
     t.index ["user_id", "source_id"], name: "index_user_sources_on_user_id_and_source_id", unique: true
     t.index ["user_id"], name: "index_user_sources_on_user_id"

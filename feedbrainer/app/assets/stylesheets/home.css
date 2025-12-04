@@ -49,6 +49,11 @@
   padding: 1.5rem;
 }
 
+/* When there's no image, use single column layout */
+.article-content.no-image {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 768px) {
   .article-content {
     grid-template-columns: 1fr;

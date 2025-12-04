@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 
 from skytorch.nlp import extract_named_entities, generate_embedding
-from skytorch.atproto_client import get_atproto_client
+from skytorch.atproto_client import get_atproto_client, reset_atproto_client, reset_atproto_client
 
 router = APIRouter()
 
@@ -213,9 +213,40 @@ async def get_follows(
             detail=f"AT Protocol library not available: {str(e)}"
         )
     except Exception as e:
+        error_str = str(e)
+        # Check if it's an InvalidToken error and retry with fresh authentication
+        if "InvalidToken" in error_str or "Token could not be verified" in error_str:
+            try:
+                reset_atproto_client()
+                client = get_atproto_client()
+                if client:
+                    result = client.get_follows(actor=did, limit=limit, cursor=cursor)
+                    follows = []
+                    for profile in result.follows:
+                        display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+                        avatar_url = None
+                        avatar_attr = getattr(profile, 'avatar', None)
+                        if avatar_attr:
+                            avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+                        follows.append(FollowProfile(
+                            did=profile.did,
+                            handle=getattr(profile, 'handle', None),
+                            display_name=display_name,
+                            avatar=avatar_url
+                        ))
+                    return FollowsResponse(
+                        follows=follows,
+                        count=len(follows),
+                        cursor=getattr(result, 'cursor', None)
+                    )
+            except Exception as retry_error:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error fetching follows after token refresh: {str(retry_error)}"
+                )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching follows: {str(e)}"
+            detail=f"Error fetching follows: {error_str}"
         )
 
 
@@ -271,9 +302,40 @@ async def get_followers(
             detail=f"AT Protocol library not available: {str(e)}"
         )
     except Exception as e:
+        error_str = str(e)
+        # Check if it's an InvalidToken error and retry with fresh authentication
+        if "InvalidToken" in error_str or "Token could not be verified" in error_str:
+            try:
+                reset_atproto_client()
+                client = get_atproto_client()
+                if client:
+                    result = client.get_followers(actor=did, limit=limit, cursor=cursor)
+                    followers = []
+                    for profile in result.followers:
+                        display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+                        avatar_url = None
+                        avatar_attr = getattr(profile, 'avatar', None)
+                        if avatar_attr:
+                            avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+                        followers.append(FollowProfile(
+                            did=profile.did,
+                            handle=getattr(profile, 'handle', None),
+                            display_name=display_name,
+                            avatar=avatar_url
+                        ))
+                    return FollowersResponse(
+                        followers=followers,
+                        count=len(followers),
+                        cursor=getattr(result, 'cursor', None)
+                    )
+            except Exception as retry_error:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error fetching followers after token refresh: {str(retry_error)}"
+                )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching followers: {str(e)}"
+            detail=f"Error fetching followers: {error_str}"
         )
 
 
