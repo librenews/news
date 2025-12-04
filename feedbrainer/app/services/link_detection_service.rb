@@ -58,6 +58,17 @@ class LinkDetectionService
       end
     end
     
+    # Fallback: extract URLs from post text if no facets found
+    if links.empty?
+      text = @post_data.dig("commit", "record", "text") || ""
+      # Extract URLs from text (simple regex)
+      text.scan(%r{https?://[^\s\)]+}) do |url|
+        # Clean up trailing punctuation
+        url = url.gsub(/[.,;:!?]+$/, "")
+        links << url
+      end
+    end
+    
     links.uniq
   end
 

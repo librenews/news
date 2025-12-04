@@ -9,7 +9,7 @@ defmodule Skybeam.Firehose.Producer do
   def notify_events(events) do
     # Find the producer process started by Broadway
     producers = Broadway.producer_names(Skybeam.Firehose.Pipeline)
-    
+
     case producers do
       [producer_name] ->
         GenStage.cast(producer_name, {:notify, events})

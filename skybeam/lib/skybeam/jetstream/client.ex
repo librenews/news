@@ -10,12 +10,12 @@ defmodule Skybeam.Jetstream.Client do
       {"User-Agent", "Skybeam/1.0"},
       {"Accept", "*/*"}
     ]
-    
+
     opts = [
       extra_headers: extra_headers,
       async: true
     ]
-    
+
     Logger.info("Connecting to Jetstream at #{@url}")
     WebSockex.start_link(@url, __MODULE__, %{}, [name: __MODULE__] ++ opts)
   end

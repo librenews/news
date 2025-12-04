@@ -27,6 +27,7 @@ FROM base AS deps
 COPY feedbrainer/Gemfile ./feedbrainer/
 COPY feedbrainer/Gemfile.lock* ./feedbrainer/
 WORKDIR ${APP_HOME}/feedbrainer
+# Install production gems first
 RUN bundle install --jobs 4
 
 FROM deps AS dev
@@ -36,7 +37,10 @@ ENV RAILS_ENV=development \
 RUN gem install bundler -v '~> 2.5'
 COPY feedbrainer ${APP_HOME}/feedbrainer
 WORKDIR ${APP_HOME}/feedbrainer
-RUN bundle install
+# Install all gems including development/test gems
+# Clear any existing bundle config and install fresh
+RUN bundle config unset without && \
+    bundle install --jobs 4
 CMD ["bin/dev"]
 
 FROM deps AS build

@@ -47,8 +47,10 @@ Thumbs.db
 reading
 transferring
 deploy.log
+
+# Log files
 *.log
+skybeam/*.txt
 skybeam/*.log
 skybeam_check*.log
 skybeam_tail.log
-

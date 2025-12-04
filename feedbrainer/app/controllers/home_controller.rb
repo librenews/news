@@ -14,4 +14,3 @@ class HomeController < ApplicationController
       .includes(posts: :source)
   end
 end
-

@@ -21,7 +21,7 @@ services:
       - "3001:3000"
     volumes:
       - ./feedbrainer:/app/feedbrainer
-    command: bin/dev
+    command: sh -c "bundle install && bin/dev"
 
   feedbrainer_consumer:
     build:

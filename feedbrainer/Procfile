@@ -4,3 +4,4 @@
 
 web: bundle exec rails server -b 0.0.0.0 -p 3000
 firehose: bundle exec ruby script/firehose_consumer.rb
+sidekiq: bundle exec sidekiq

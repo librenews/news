@@ -13,6 +13,10 @@ class ProcessArticleEmbeddingsJob < ApplicationJob
       return
     end
 
+    # Ensure idempotency by clearing existing data
+    article.article_chunks.destroy_all
+    article.article_entities.destroy_all
+
     # Step 2: Chunk the cleaned text
     chunks = ArticleChunkingService.call(cleaned_text)
     if chunks.empty?

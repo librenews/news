@@ -1,10 +1,11 @@
 """Main API endpoints."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 from skytorch.nlp import extract_named_entities, generate_embedding
+from skytorch.atproto_client import get_atproto_client, reset_atproto_client, reset_atproto_client
 
 router = APIRouter()
 
@@ -116,5 +117,350 @@ async def generate_embeddings(request: EmbeddingRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating embedding: {str(e)}"
+        )
+
+
+class FollowProfile(BaseModel):
+    """Model for a follow profile."""
+    did: str = Field(..., description="Decentralized Identifier")
+    handle: Optional[str] = Field(None, description="User handle")
+    display_name: Optional[str] = Field(None, description="Display name")
+    avatar: Optional[str] = Field(None, description="Avatar URL")
+
+
+class FollowsResponse(BaseModel):
+    """Response model for follows."""
+    follows: List[FollowProfile] = Field(..., description="List of profiles the user follows")
+    count: int = Field(..., description="Total number of follows")
+    cursor: Optional[str] = Field(None, description="Cursor for pagination")
+
+
+class FollowersResponse(BaseModel):
+    """Response model for followers."""
+    followers: List[FollowProfile] = Field(..., description="List of profiles that follow the user")
+    count: int = Field(..., description="Total number of followers")
+    cursor: Optional[str] = Field(None, description="Cursor for pagination")
+
+
+class ResolveHandleResponse(BaseModel):
+    """Response model for handle resolution."""
+    did: str = Field(..., description="Decentralized Identifier")
+    handle: Optional[str] = Field(None, description="User handle")
+
+
+class ProfileResponse(BaseModel):
+    """Response model for user profile."""
+    did: str = Field(..., description="Decentralized Identifier")
+    handle: Optional[str] = Field(None, description="User handle")
+    display_name: Optional[str] = Field(None, description="Display name")
+    description: Optional[str] = Field(None, description="Profile description/bio")
+    avatar: Optional[str] = Field(None, description="Avatar URL")
+    banner: Optional[str] = Field(None, description="Banner image URL")
+    followers_count: Optional[int] = Field(None, description="Number of followers")
+    follows_count: Optional[int] = Field(None, description="Number of follows")
+    posts_count: Optional[int] = Field(None, description="Number of posts")
+
+
+@router.get("/follows", response_model=FollowsResponse, status_code=status.HTTP_200_OK)
+async def get_follows(
+    did: str = Query(..., description="Decentralized Identifier to get follows for"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of results to return"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination")
+):
+    """
+    Get the list of profiles that a user follows.
+    
+    Returns an array of profiles (DIDs) that the specified user follows.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's get_follows method
+        # According to atproto.blue docs, these are direct methods on the client
+        result = client.get_follows(actor=did, limit=limit, cursor=cursor)
+        
+        # Extract profile information
+        # atproto returns profiles with camelCase attributes
+        follows = []
+        for profile in result.follows:
+            # Handle both camelCase and snake_case attribute names
+            display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+            avatar_url = None
+            avatar_attr = getattr(profile, 'avatar', None)
+            if avatar_attr:
+                avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+            
+            follows.append(FollowProfile(
+                did=profile.did,
+                handle=getattr(profile, 'handle', None),
+                display_name=display_name,
+                avatar=avatar_url
+            ))
+        
+        return FollowsResponse(
+            follows=follows,
+            count=len(follows),
+            cursor=getattr(result, 'cursor', None)
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        error_str = str(e)
+        # Check if it's an InvalidToken error and retry with fresh authentication
+        if "InvalidToken" in error_str or "Token could not be verified" in error_str:
+            try:
+                reset_atproto_client()
+                client = get_atproto_client()
+                if client:
+                    result = client.get_follows(actor=did, limit=limit, cursor=cursor)
+                    follows = []
+                    for profile in result.follows:
+                        display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+                        avatar_url = None
+                        avatar_attr = getattr(profile, 'avatar', None)
+                        if avatar_attr:
+                            avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+                        follows.append(FollowProfile(
+                            did=profile.did,
+                            handle=getattr(profile, 'handle', None),
+                            display_name=display_name,
+                            avatar=avatar_url
+                        ))
+                    return FollowsResponse(
+                        follows=follows,
+                        count=len(follows),
+                        cursor=getattr(result, 'cursor', None)
+                    )
+            except Exception as retry_error:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error fetching follows after token refresh: {str(retry_error)}"
+                )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching follows: {error_str}"
+        )
+
+
+@router.get("/followers", response_model=FollowersResponse, status_code=status.HTTP_200_OK)
+async def get_followers(
+    did: str = Query(..., description="Decentralized Identifier to get followers for"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of results to return"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination")
+):
+    """
+    Get the list of profiles that follow a user.
+    
+    Returns an array of profiles (DIDs) that follow the specified user.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's get_followers method
+        # According to atproto.blue docs, these are direct methods on the client
+        result = client.get_followers(actor=did, limit=limit, cursor=cursor)
+        
+        # Extract profile information
+        # atproto returns profiles with camelCase attributes
+        followers = []
+        for profile in result.followers:
+            # Handle both camelCase and snake_case attribute names
+            display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+            avatar_url = None
+            avatar_attr = getattr(profile, 'avatar', None)
+            if avatar_attr:
+                avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+            
+            followers.append(FollowProfile(
+                did=profile.did,
+                handle=getattr(profile, 'handle', None),
+                display_name=display_name,
+                avatar=avatar_url
+            ))
+        
+        return FollowersResponse(
+            followers=followers,
+            count=len(followers),
+            cursor=getattr(result, 'cursor', None)
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        error_str = str(e)
+        # Check if it's an InvalidToken error and retry with fresh authentication
+        if "InvalidToken" in error_str or "Token could not be verified" in error_str:
+            try:
+                reset_atproto_client()
+                client = get_atproto_client()
+                if client:
+                    result = client.get_followers(actor=did, limit=limit, cursor=cursor)
+                    followers = []
+                    for profile in result.followers:
+                        display_name = getattr(profile, 'displayName', None) or getattr(profile, 'display_name', None)
+                        avatar_url = None
+                        avatar_attr = getattr(profile, 'avatar', None)
+                        if avatar_attr:
+                            avatar_url = getattr(avatar_attr, 'ref', {}).get('$link') if hasattr(avatar_attr, 'ref') else str(avatar_attr)
+                        followers.append(FollowProfile(
+                            did=profile.did,
+                            handle=getattr(profile, 'handle', None),
+                            display_name=display_name,
+                            avatar=avatar_url
+                        ))
+                    return FollowersResponse(
+                        followers=followers,
+                        count=len(followers),
+                        cursor=getattr(result, 'cursor', None)
+                    )
+            except Exception as retry_error:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error fetching followers after token refresh: {str(retry_error)}"
+                )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching followers: {error_str}"
+        )
+
+
+@router.get("/resolve_handle", response_model=ResolveHandleResponse, status_code=status.HTTP_200_OK)
+async def resolve_handle(
+    handle: str = Query(..., description="Bluesky handle to resolve (e.g., 'open.news')")
+):
+    """
+    Resolve a Bluesky handle to a DID.
+    
+    Takes a handle (e.g., 'open.news') and returns the corresponding DID.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's resolve_handle method
+        result = client.resolve_handle(handle=handle)
+        
+        return ResolveHandleResponse(
+            did=result.did,
+            handle=getattr(result, 'handle', handle)
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        error_message = str(e)
+        # Check if it's a "handle not found" type error
+        if "not found" in error_message.lower() or "invalid" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Handle not found: {handle}"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error resolving handle: {error_message}"
+        )
+
+
+@router.get("/profile", response_model=ProfileResponse, status_code=status.HTTP_200_OK)
+async def get_profile(
+    did: str = Query(..., description="Decentralized Identifier to get profile for")
+):
+    """
+    Get a user's profile information from a DID.
+    
+    Returns profile information including display name, description, avatar, banner,
+    and follower/follow/post counts.
+    """
+    try:
+        client = get_atproto_client()
+        if not client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AT Protocol client not available. Check ATPROTO_HANDLE and ATPROTO_PASSWORD environment variables."
+            )
+        
+        # Use the atproto client's get_profile method
+        result = client.get_profile(actor=did)
+        
+        # Extract profile information
+        # Handle both camelCase and snake_case attribute names
+        display_name = getattr(result, 'displayName', None) or getattr(result, 'display_name', None)
+        description = getattr(result, 'description', None)
+        
+        # Extract avatar URL
+        avatar_url = None
+        avatar_attr = getattr(result, 'avatar', None)
+        if avatar_attr:
+            if hasattr(avatar_attr, 'ref') and hasattr(avatar_attr.ref, 'get'):
+                avatar_url = avatar_attr.ref.get('$link')
+            elif hasattr(avatar_attr, 'ref'):
+                avatar_url = str(getattr(avatar_attr.ref, '$link', avatar_attr))
+            else:
+                avatar_url = str(avatar_attr)
+        
+        # Extract banner URL
+        banner_url = None
+        banner_attr = getattr(result, 'banner', None)
+        if banner_attr:
+            if hasattr(banner_attr, 'ref') and hasattr(banner_attr.ref, 'get'):
+                banner_url = banner_attr.ref.get('$link')
+            elif hasattr(banner_attr, 'ref'):
+                banner_url = str(getattr(banner_attr.ref, '$link', banner_attr))
+            else:
+                banner_url = str(banner_attr)
+        
+        # Extract counts
+        followers_count = getattr(result, 'followersCount', None) or getattr(result, 'followers_count', None)
+        follows_count = getattr(result, 'followsCount', None) or getattr(result, 'follows_count', None)
+        posts_count = getattr(result, 'postsCount', None) or getattr(result, 'posts_count', None)
+        
+        return ProfileResponse(
+            did=result.did,
+            handle=getattr(result, 'handle', None),
+            display_name=display_name,
+            description=description,
+            avatar=avatar_url,
+            banner=banner_url,
+            followers_count=followers_count,
+            follows_count=follows_count,
+            posts_count=posts_count
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AT Protocol library not available: {str(e)}"
+        )
+    except Exception as e:
+        error_message = str(e)
+        # Check if it's a "profile not found" type error
+        if "not found" in error_message.lower() or "invalid" in error_message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Profile not found for DID: {did}"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching profile: {error_message}"
         )
 
