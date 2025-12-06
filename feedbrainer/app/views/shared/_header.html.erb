@@ -1,0 +1,73 @@
+<header class="main-header">
+  <div class="header-container">
+    <div class="header-left">
+      <%= link_to root_path, class: "brand-logo" do %>
+        <span class="brand-text">open.news</span>
+      <% end %>
+    </div>
+
+    <div class="header-right">
+      <% if user_signed_in? %>
+        <div class="user-menu-container">
+          <button class="user-menu-trigger" id="user-menu-btn" aria-expanded="false" aria-haspopup="true">
+            <% if current_user.bluesky_avatar_url.present? %>
+              <%= image_tag current_user.bluesky_avatar_url, class: "user-avatar", alt: current_user.bluesky_handle %>
+            <% else %>
+              <div class="user-avatar-placeholder"><%= current_user.bluesky_handle&.first&.upcase || "U" %></div>
+            <% end %>
+            <span class="user-handle"><%= current_user.bluesky_handle %></span>
+            <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+
+          <div class="dropdown-menu hidden" id="user-menu-dropdown" role="menu">
+            <div class="dropdown-header">
+              <span class="dropdown-user-name"><%= current_user.bluesky_display_name %></span>
+              <span class="dropdown-user-handle">@<%= current_user.bluesky_handle %></span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <%= button_to logout_path, method: :delete, class: "dropdown-item text-danger", form_class: "dropdown-item-form", role: "menuitem" do %>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Sign Out
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <%= link_to "Connect Bluesky", login_path, class: "btn btn-primary btn-sm" %>
+      <% end %>
+    </div>
+  </div>
+</header>
+
+<script>
+  (function() {
+    // Use event delegation to handle clicks, which works with Turbo
+    document.addEventListener('click', function(e) {
+      const trigger = e.target.closest('#user-menu-btn');
+      const dropdown = document.getElementById('user-menu-dropdown');
+      
+      if (!dropdown) return;
+
+      if (trigger) {
+        // Clicked the toggle button
+        e.preventDefault();
+        e.stopPropagation();
+        const isHidden = dropdown.classList.contains('hidden');
+        
+        if (isHidden) {
+          dropdown.classList.remove('hidden');
+          trigger.setAttribute('aria-expanded', 'true');
+        } else {
+          dropdown.classList.add('hidden');
+          trigger.setAttribute('aria-expanded', 'false');
+        }
+      } else if (!e.target.closest('#user-menu-dropdown')) {
+        // Clicked outside the dropdown
+        if (!dropdown.classList.contains('hidden')) {
+          dropdown.classList.add('hidden');
+          const btn = document.getElementById('user-menu-btn');
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+  })();
+</script>
