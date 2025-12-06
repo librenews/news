@@ -1,8 +1,18 @@
 class IngestPostJob < ApplicationJob
   queue_as :default
+  
+  # Retry on transient errors
+  retry_on StandardError, wait: :exponentially_longer, attempts: 3
 
   def perform(post_data, links)
     return if links.empty?
+    
+    # Validate required data
+    did = post_data.dig("did")
+    unless did
+      Rails.logger.error("IngestPostJob: Missing 'did' in post_data")
+      return
+    end
 
     # 1. Fetch each link
     links.each do |link|
@@ -22,7 +32,6 @@ class IngestPostJob < ApplicationJob
       # 3. It IS a news article! Now we persist everything.
       
       # Find or Create Source
-      did = post_data.dig("did")
       source = Source.find_or_initialize_by(atproto_did: did)
       if source.new_record?
         source.save!
@@ -50,30 +59,50 @@ class IngestPostJob < ApplicationJob
       # The raw data structure from Skybeam might be slightly different than what we stored before
       # Skybeam sends the whole event.
       
-      # Check if post already exists to avoid duplicates
-      rkey = post_data.dig("commit", "rkey") 
-      # Note: rkey isn't directly in the top level usually, it's part of the URI or we need to extract it.
-      # Actually, Skybeam event structure: %{"commit" => ..., "did" => ...}
-      # The "commit" map usually contains "rkey" if we parsed it that way, or we extract from URI.
-      # Let's assume we can find the URI.
+      # Extract URI - prefer from record, fallback to constructing from components
+      uri = post_data.dig("commit", "record", "uri")
+      unless uri
+        collection = post_data.dig("commit", "collection")
+        rkey = extract_rkey(post_data)
+        if collection && rkey && did
+          uri = "at://#{did}/#{collection}/#{rkey}"
+        else
+          Rails.logger.error("IngestPostJob: Cannot construct URI - missing required fields (did: #{did.present?}, collection: #{collection.present?}, rkey: #{rkey.present?})")
+          next
+        end
+      end
       
-      uri = post_data.dig("commit", "record", "uri") || 
-            "at://#{did}/#{post_data.dig('commit', 'collection')}/#{extract_rkey(post_data)}"
+      # Parse published_at from ISO string
+      created_at_str = post_data.dig("commit", "record", "createdAt")
+      published_at = nil
+      if created_at_str
+        begin
+          published_at = Time.parse(created_at_str)
+        rescue => e
+          Rails.logger.warn("IngestPostJob: Failed to parse createdAt '#{created_at_str}': #{e.message}")
+          # Fallback to current time if parsing fails
+          published_at = Time.current
+        end
+      else
+        Rails.logger.warn("IngestPostJob: No createdAt found, using current time")
+        published_at = Time.current
+      end
       
-      Rails.logger.info("IngestPostJob: Generated URI: #{uri}")
+      Rails.logger.debug("IngestPostJob: Generated URI: #{uri}, published_at: #{published_at}")
             
       post = Post.find_or_initialize_by(uri: uri)
       if post.new_record?
         post.source = source
         post.payload = post_data # Save the raw data
-        post.published_at = post_data.dig("commit", "record", "createdAt")
+        post.published_at = published_at
         if post.save
           Rails.logger.info("IngestPostJob: Created Post #{post.id}")
         else
           Rails.logger.error("IngestPostJob: Failed to save Post: #{post.errors.full_messages.join(', ')}")
+          next # Skip this link if we can't save the post
         end
       else
-        Rails.logger.info("IngestPostJob: Post already exists: #{post.id}")
+        Rails.logger.debug("IngestPostJob: Post already exists: #{post.id}")
       end
 
       # Link Article to Post
@@ -82,6 +111,10 @@ class IngestPostJob < ApplicationJob
       
       Rails.logger.info("IngestPostJob: Successfully ingested article #{article.id} from post #{post.id}")
     end
+  rescue => e
+    Rails.logger.error("IngestPostJob: Unexpected error: #{e.class} - #{e.message}")
+    Rails.logger.error(e.backtrace.first(10).join("\n"))
+    raise # Re-raise to trigger retry mechanism
   end
 
   private

@@ -8,6 +8,9 @@ class Article < ApplicationRecord
   validates :title, presence: true
   validates :url, presence: true, uniqueness: true
 
+  # Virtual attribute for share count from SQL query
+  attr_accessor :share_count
+
   after_create_commit :enqueue_embedding_processing
 
   def clean_text!

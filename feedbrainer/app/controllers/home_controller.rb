@@ -12,5 +12,29 @@ class HomeController < ApplicationController
       .order(Arel.sql("COUNT(article_posts.id) / POWER((EXTRACT(EPOCH FROM (NOW() - articles.created_at)) / 3600) + 2, #{gravity}) DESC"))
       .limit(50)
       .includes(posts: :source)
+    
+    respond_to do |format|
+      format.html # renders index.html.erb
+      
+      format.json do
+        render json: @articles.as_json(
+          only: [:id, :title, :url, :description, :author, :published_at, :created_at, :image_url],
+          methods: [:share_count],
+          include: {
+            posts: {
+              only: [:id, :uri, :published_at],
+              include: {
+                source: {
+                  only: [:id, :atproto_did],
+                  methods: [:handle, :display_name, :avatar]
+                }
+              }
+            }
+          }
+        )
+      end
+      
+      format.rss { render layout: false }
+    end
   end
 end
