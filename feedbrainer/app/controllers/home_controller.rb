@@ -15,22 +15,21 @@ class HomeController < ApplicationController
       return
     end
 
-    # Filter articles by followed sources using a subquery to avoid grouping errors
-    # We want articles that have at least one post from a source the user follows
-    article_ids = ArticlePost.joins(post: :source)
-                             .where(sources: { id: current_user.sources.select(:id) })
-                             .select(:article_id)
-    
-    scope = Article.where(id: article_ids)
+    # Get network source IDs for filtering
+    network_source_ids = current_user.sources.pluck(:id)
 
-    @articles = fetch_ranked_articles("network_index_#{current_user.id}", scope)
+    # Filter articles by followed sources using joins
+    # This ensures COUNT(article_posts.id) only counts posts from network sources
+    scope = Article.joins(posts: :source).where(sources: { id: network_source_ids })
+
+    @articles = fetch_ranked_articles("network_index_#{current_user.id}", scope, network_source_ids)
 
     render :index
   end
 
   private
 
-  def fetch_ranked_articles(cache_key_prefix, scope = Article.all)
+  def fetch_ranked_articles(cache_key_prefix, scope = Article.all, filter_source_ids = nil)
     # Hacker News ranking algorithm: (p - 1) / (t + 2)^1.8
     gravity = 1.8
     
@@ -45,13 +44,20 @@ class HomeController < ApplicationController
         .select("articles.*, COUNT(article_posts.id) AS share_count")
         .order(Arel.sql("COUNT(article_posts.id) / POWER((EXTRACT(EPOCH FROM (NOW() - articles.created_at)) / 3600) + 2, #{gravity}) DESC"))
         .limit(50)
-        .includes(posts: :source)
+        .preload(posts: :source) # Use preload to avoid affecting the main query's GROUP BY
         .to_a
       
       # Pre-calculate distinct sources for each article
       results.each do |article|
-        article.distinct_sources = article.posts.group_by(&:source_id).values.map(&:first).first(20)
-        article.distinct_source_count = article.posts.map(&:source_id).uniq.count
+        posts = article.posts
+        
+        # Filter sources if a filter is provided (e.g. for network feed)
+        if filter_source_ids
+          posts = posts.select { |p| filter_source_ids.include?(p.source_id) }
+        end
+
+        article.distinct_sources = posts.group_by(&:source_id).values.map(&:first).first(20)
+        article.distinct_source_count = posts.map(&:source_id).uniq.count
       end
       
       results
