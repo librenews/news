@@ -117,6 +117,9 @@ class BlueskyAuthController < ApplicationController
     # Set session
     session[:user_id] = user.id
 
+    # Sync user follows in background to ensure network feed is up to date
+    SyncUserFollowsJob.perform_later(user.id)
+
     Rails.logger.info "✅ User #{user.id} authenticated via Bluesky OAuth"
     Rails.logger.info "   Email: #{user.email}" if user.email.present?
     Rails.logger.info "   Handle: #{user.bluesky_handle}"

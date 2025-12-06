@@ -42,6 +42,31 @@
   font-size: 1.5rem;
 }
 
+.header-nav {
+  margin-left: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.nav-link {
+  color: #4b5563;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.nav-link:hover {
+  color: #111827;
+}
+
+.nav-link.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
 /* User Menu & Dropdown */
 .user-menu-container {
   position: relative;

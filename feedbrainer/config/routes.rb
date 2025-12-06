@@ -32,6 +32,7 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "home#index"
+  get "/network", to: "home#network", as: :network
   
   # Explicit routes for JSON and RSS formats
   get "/index", to: "home#index", as: :home_index
