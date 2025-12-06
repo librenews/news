@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_06_115604) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_06_131843) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -82,6 +82,21 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_115604) do
     t.datetime "updated_at", null: false
     t.index ["normalized_name", "entity_type"], name: "index_entities_on_normalized_name_and_entity_type", unique: true
     t.index ["normalized_name"], name: "index_entities_on_normalized_name"
+  end
+
+  create_table "identities", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "provider", null: false
+    t.string "uid", null: false
+    t.text "access_token"
+    t.text "refresh_token"
+    t.datetime "expires_at"
+    t.string "scope"
+    t.jsonb "raw_info"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider", "uid"], name: "index_identities_on_provider_and_uid", unique: true
+    t.index ["user_id"], name: "index_identities_on_user_id"
   end
 
   create_table "posts", force: :cascade do |t|
@@ -242,7 +257,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_115604) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.jsonb "profile", default: {}
+    t.string "email"
+    t.string "bluesky_handle"
+    t.string "bluesky_display_name"
+    t.string "bluesky_avatar_url"
+    t.datetime "bluesky_connected_at"
     t.index ["atproto_did"], name: "index_users_on_atproto_did", unique: true
+    t.index ["bluesky_handle"], name: "index_users_on_bluesky_handle"
+    t.index ["email"], name: "index_users_on_email", unique: true, where: "(email IS NOT NULL)"
     t.index ["profile"], name: "index_users_on_profile", using: :gin
   end
 
@@ -251,6 +273,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_115604) do
   add_foreign_key "article_entities", "entities"
   add_foreign_key "article_posts", "articles"
   add_foreign_key "article_posts", "posts"
+  add_foreign_key "identities", "users"
   add_foreign_key "posts", "sources"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

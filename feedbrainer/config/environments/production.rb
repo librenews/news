@@ -47,12 +47,21 @@ Rails.application.configure do
   config.active_support.report_deprecations = false
 
   # Replace the default in-process memory cache store with a durable alternative.
+  # Replace the default in-process memory cache store with a durable alternative.
   config.cache_store = :redis_cache_store, {
     url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"),
     namespace: "feedbrainer:cache",
     expires_in: 5.minutes,
     reconnect_attempts: 3
   }
+
+  # Use Redis for session storage (long-lived sessions)
+  config.session_store :redis_store,
+    servers: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"),
+    expire_after: 90.days,
+    key: "_feedbrainer_session",
+    secure: true,
+    same_site: :lax
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
   # Replace the default in-process and non-durable queuing backend for Active Job.

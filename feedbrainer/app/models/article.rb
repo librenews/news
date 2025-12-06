@@ -10,6 +10,9 @@ class Article < ApplicationRecord
 
   # Virtual attribute for share count from SQL query
   attr_accessor :share_count
+  
+  # Virtual attributes for caching optimization
+  attr_accessor :distinct_sources, :distinct_source_count
 
   after_create_commit :enqueue_embedding_processing
 

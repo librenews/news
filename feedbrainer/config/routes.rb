@@ -15,6 +15,13 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
+  # Bluesky OAuth routes
+  get "/auth/bluesky/start", to: "bluesky_auth#start", as: :bluesky_auth_start
+  get "/auth/atproto/callback", to: "bluesky_auth#callback"
+  post "/auth/atproto/callback", to: "bluesky_auth#callback"
+  get "/auth/failure", to: "bluesky_auth#failure"
+  get "/oauth/client-metadata.json", to: "bluesky_auth#client_metadata"
+
   # API routes
   namespace :api do
     resources :sources, only: [:index]

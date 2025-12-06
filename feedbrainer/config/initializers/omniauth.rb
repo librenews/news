@@ -1,0 +1,65 @@
+require_relative "../../lib/omniauth/atproto/key_manager"
+
+Rails.application.config.middleware.use OmniAuth::Builder do
+  # Use the omniauth-atproto strategy with dynamic configuration
+  provider(:atproto,
+    nil,  # Client ID will be set dynamically in the strategy
+    nil,  # Client secret (not used with DPoP)
+    client_options: {
+        site: "https://bsky.social",
+        authorize_url: "https://bsky.social/oauth/authorize",
+        token_url: "https://bsky.social/oauth/token"
+    },
+    scope: "atproto transition:email",  # Added transition:email to capture email
+    private_key: OmniAuth::Atproto::KeyManager.current_private_key,
+    client_jwk: OmniAuth::Atproto::KeyManager.current_jwk,
+    setup: proc { |env|
+      # Set client_id dynamically based on current request
+      request = Rack::Request.new(env)
+      scheme = request.ssl? ? "https" : "http"
+
+      # For tunnel connections, use standard port (no port in URL)
+      if request.ssl? && request.port != 443
+        app_url = "#{scheme}://#{request.host}"
+      else
+        app_url = "#{scheme}://#{request.host_with_port}"
+      end
+
+      client_id = "#{app_url}/oauth/client-metadata.json"
+      env["omniauth.strategy"].options.client_id = client_id
+
+      # Get PDS endpoint from session (set by BlueskyAuthController#start)
+      session = env["rack.session"]
+      pds_endpoint = session&.[]("bluesky_pds_endpoint")
+
+      Rails.logger.info "🔐 OmniAuth Setup: Session ID: #{session&.id}"
+      Rails.logger.info "🔐 OmniAuth Setup: PDS Endpoint from session: #{pds_endpoint.inspect}"
+
+      # Use custom PDS endpoint if available, otherwise default to bsky.social
+      if pds_endpoint.present?
+        # Special handling for Bluesky-hosted PDS shards (e.g., shiitake.us-east.host.bsky.network)
+        # These shards don't host the OAuth UI; we must use bsky.social
+        if pds_endpoint.include?("bsky.network") || pds_endpoint.include?("bsky.social")
+          Rails.logger.info "🔧 PDS is a Bluesky shard (#{pds_endpoint}), using bsky.social for OAuth"
+          env["omniauth.strategy"].options.client_options[:site] = "https://bsky.social"
+          env["omniauth.strategy"].options.client_options[:authorize_url] = "https://bsky.social/oauth/authorize"
+          env["omniauth.strategy"].options.client_options[:token_url] = "https://bsky.social/oauth/token"
+        else
+          Rails.logger.info "🔧 Using custom PDS endpoint: #{pds_endpoint}"
+          env["omniauth.strategy"].options.client_options[:site] = pds_endpoint
+          env["omniauth.strategy"].options.client_options[:authorize_url] = "#{pds_endpoint}/oauth/authorize"
+          env["omniauth.strategy"].options.client_options[:token_url] = "#{pds_endpoint}/oauth/token"
+        end
+      else
+        # Default to bsky.social
+        Rails.logger.info "⚠️ PDS endpoint missing in session, defaulting to bsky.social"
+        env["omniauth.strategy"].options.client_options[:site] = "https://bsky.social"
+        env["omniauth.strategy"].options.client_options[:authorize_url] = "https://bsky.social/oauth/authorize"
+        env["omniauth.strategy"].options.client_options[:token_url] = "https://bsky.social/oauth/token"
+      end
+    })
+end
+
+# Configure OmniAuth settings
+OmniAuth.config.allowed_request_methods = [ :post, :get ]
+OmniAuth.config.silence_get_warning = true

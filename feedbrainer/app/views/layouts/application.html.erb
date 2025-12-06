@@ -23,6 +23,11 @@
   </head>
 
   <body>
+    <% flash.each do |key, value| %>
+      <div class="flash flash-<%= key %>" style="padding: 10px; margin-bottom: 10px; border-radius: 4px; <%= key == 'alert' ? 'background: #fee; color: #c00; border: 1px solid #fcc;' : 'background: #efe; color: #0c0; border: 1px solid #cfc;' %>">
+        <%= value %>
+      </div>
+    <% end %>
     <%= yield %>
   </body>
 </html>

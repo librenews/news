@@ -47,7 +47,7 @@
           <div class="sources-label">Shared by:</div>
           <div class="source-avatars">
             <%# Use pre-calculated distinct sources from controller %>
-            <% distinct_sources = article.instance_variable_get(:@distinct_sources) %>
+            <% distinct_sources = article.distinct_sources %>
             <% distinct_sources.each do |post| %>
               <% source = post.source %>
               <% handle = source.profile&.dig("handle") || source.atproto_did %>
@@ -97,10 +97,10 @@
               <% end %>
             <% end %>
           </div>
-          <%# Use pre-calculated distinct source count %>
-          <% distinct_source_count = article.instance_variable_get(:@distinct_source_count) %>
-          <% if distinct_source_count > 20 %>
-            <span class="more-sources">+<%= distinct_source_count - 20 %> more</span>
+            <%# Use pre-calculated count %>
+            <% distinct_count = article.distinct_source_count %>
+          <% if distinct_count > 20 %>
+            <span class="more-sources">+<%= distinct_count - 20 %> more</span>
           <% end %>
         </div>
       </article>

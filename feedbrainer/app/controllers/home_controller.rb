@@ -18,35 +18,38 @@ class HomeController < ApplicationController
         .includes(posts: :source)
         .to_a
       
-      # Pre-calculate distinct sources for each article to avoid N+1 queries in the view
-      # This groups posts by source_id and takes the first post for each unique source
+      # Pre-calculate distinct sources for each article
       articles.each do |article|
-        article.instance_variable_set(:@distinct_sources, 
-          article.posts.group_by(&:source_id).values.map(&:first).first(20)
-        )
-        article.instance_variable_set(:@distinct_source_count,
-          article.posts.map(&:source_id).uniq.count
-        )
+        article.distinct_sources = article.posts.group_by(&:source_id).values.map(&:first).first(20)
+        article.distinct_source_count = article.posts.map(&:source_id).uniq.count
       end
-      
-      # Batch load all sources that might be referenced in reposts
-      # to avoid N+1 queries when looking up original sources
-      all_post_dids = articles.flat_map(&:posts).flat_map do |post|
-        dids = []
-        # Get the repost subject DID if it exists
-        subject_uri = post.post&.dig("commit", "record", "subject", "uri")
-        if subject_uri.present?
-          uri_match = subject_uri.match(/\Aat:\/\/([^\/]+)\/([^\/]+)\/([^\/]+)\z/)
-          dids << uri_match[1] if uri_match
-        end
-        dids
-      end.compact.uniq
-      
-      # Preload all these sources into memory
-      @preloaded_sources = Source.where(atproto_did: all_post_dids).index_by(&:atproto_did)
       
       articles
     end
+    
+    # Ensure virtual attributes are present (in case of cache serialization issues)
+    @articles.each do |article|
+      if article.distinct_sources.nil?
+        article.distinct_sources = article.posts.group_by(&:source_id).values.map(&:first).first(20)
+        article.distinct_source_count = article.posts.map(&:source_id).uniq.count
+      end
+    end
+
+    # Batch load all sources that might be referenced in reposts
+    # This must be done AFTER cache fetch so it runs on cache hits too
+    all_post_dids = @articles.flat_map(&:posts).flat_map do |post|
+      dids = []
+      # Get the repost subject DID if it exists
+      subject_uri = post.post&.dig("commit", "record", "subject", "uri")
+      if subject_uri.present?
+        uri_match = subject_uri.match(/\Aat:\/\/([^\/]+)\/([^\/]+)\/([^\/]+)\z/)
+        dids << uri_match[1] if uri_match
+      end
+      dids
+    end.compact.uniq
+    
+    # Preload all these sources into memory
+    @preloaded_sources = Source.where(atproto_did: all_post_dids).index_by(&:atproto_did)
     
     # Enable conditional GET for client-side caching
     fresh_when(last_modified: Article.maximum(:updated_at), etag: cache_key, public: true)
