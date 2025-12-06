@@ -4,14 +4,23 @@ class HomeController < ApplicationController
     # We use share_count as 'p' and hours since creation as 't'
     gravity = 1.8
     
-    @articles = Article
-      .joins(:article_posts)
-      .where("articles.created_at > ?", 7.days.ago)
-      .group("articles.id")
-      .select("articles.*, COUNT(article_posts.id) AS share_count")
-      .order(Arel.sql("COUNT(article_posts.id) / POWER((EXTRACT(EPOCH FROM (NOW() - articles.created_at)) / 3600) + 2, #{gravity}) DESC"))
-      .limit(50)
-      .includes(posts: :source)
+    # Cache key includes format and article timestamps for auto-invalidation
+    cache_key = "home_index_#{request.format.symbol}_#{Article.maximum(:updated_at)&.to_i || 0}"
+    
+    @articles = Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
+      Article
+        .joins(:article_posts)
+        .where("articles.created_at > ?", 7.days.ago)
+        .group("articles.id")
+        .select("articles.*, COUNT(article_posts.id) AS share_count")
+        .order(Arel.sql("COUNT(article_posts.id) / POWER((EXTRACT(EPOCH FROM (NOW() - articles.created_at)) / 3600) + 2, #{gravity}) DESC"))
+        .limit(50)
+        .includes(posts: :source)
+        .to_a
+    end
+    
+    # Enable conditional GET for client-side caching
+    fresh_when(last_modified: Article.maximum(:updated_at), etag: cache_key, public: true)
     
     respond_to do |format|
       format.html # renders index.html.erb
