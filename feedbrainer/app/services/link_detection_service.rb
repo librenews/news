@@ -3,9 +3,12 @@ class LinkDetectionService
     new(post).call
   end
 
-  def initialize(post)
-    @post = post
-    @post_data = post.post
+  def initialize(post_or_data)
+    if post_or_data.is_a?(Post)
+      @post_data = post_or_data.post
+    else
+      @post_data = post_or_data
+    end
   end
 
   def call

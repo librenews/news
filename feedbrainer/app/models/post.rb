@@ -3,11 +3,8 @@ class Post < ApplicationRecord
   has_many :article_posts, dependent: :destroy
   has_many :articles, through: :article_posts
 
-  after_create_commit :enqueue_processing
+  validates :uri, presence: true, uniqueness: true
+  validates :published_at, presence: true
 
-  private
-
-  def enqueue_processing
-    ProcessPostJob.perform_later(id)
-  end
+  alias_attribute :payload, :post
 end

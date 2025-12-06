@@ -6,33 +6,30 @@ require_relative '../config/environment'
 
 # Define helper method before using it
 def process_message(json)
-  event = JSON.parse(json)
-  did = event['did']
-  
-  # Find source by DID
-  source = Source.find_by(atproto_did: did)
-  
-  if source.nil?
-    puts "Firehose message for unknown DID: #{did}"
-    Rails.logger.warn("Firehose message for unknown DID: #{did}")
-    return
+  begin
+    data = JSON.parse(json)
+    
+    # 1. Detect Links immediately
+    links = LinkDetectionService.call(data)
+    
+    if links.any?
+      # 2. Enqueue Ingestion Job
+      # We pass the raw data and the extracted links to the job
+      IngestPostJob.perform_later(data, links)
+      puts "Enqueued IngestPostJob for #{links.count} links"
+    else
+      # Drop it
+      # puts "Dropped post (no links)"
+    end
+
+  rescue JSON::ParserError => e
+    puts "Failed to parse JSON: #{e.message}"
+    Rails.logger.error("Failed to parse firehose message: #{e.message}")
+  rescue => e
+    puts "Error processing message: #{e.message}"
+    Rails.logger.error("Unexpected error processing message: #{e.class} - #{e.message}")
+    puts e.backtrace.join("\n")
   end
-  
-  # Create post through Rails model (validations, callbacks, etc.)
-  source.posts.create!(post: event)
-  
-  puts "Created post for source #{source.id} (#{did})"
-  Rails.logger.debug("Created post for source #{source.id} (#{did})")
-  
-rescue JSON::ParserError => e
-  puts "Failed to parse firehose message: #{e.message}"
-  Rails.logger.error("Failed to parse firehose message: #{e.message}")
-rescue ActiveRecord::RecordInvalid => e
-  puts "Failed to create post: #{e.message}"
-  Rails.logger.error("Failed to create post: #{e.message}")
-rescue => e
-  puts "Unexpected error processing message: #{e.class} - #{e.message}"
-  Rails.logger.error("Unexpected error processing message: #{e.class} - #{e.message}")
 end
 
 # Use default ruby driver

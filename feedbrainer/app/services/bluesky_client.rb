@@ -10,6 +10,45 @@ class BlueskyClient
     new.get_posts(uris)
   end
 
+  def self.get_profile(actor)
+    new.get_profile(actor)
+  end
+
+  def get_profile(actor)
+    uri = URI.parse("#{BASE_URL}/xrpc/app.bsky.actor.getProfile")
+    uri.query = "actor=#{CGI.escape(actor)}"
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.open_timeout = 5
+    http.read_timeout = 10
+
+    request = Net::HTTP::Get.new(uri.request_uri)
+    request["Content-Type"] = "application/json"
+
+    response = http.request(request)
+
+    if response.code.to_i >= 200 && response.code.to_i < 300
+      data = JSON.parse(response.body)
+      {
+        success: true,
+        profile: data
+      }
+    else
+      Rails.logger.error("BlueskyClient.get_profile failed: HTTP #{response.code}: #{response.body}")
+      {
+        success: false,
+        error: "HTTP #{response.code}: #{response.body}"
+      }
+    end
+  rescue => e
+    Rails.logger.error("BlueskyClient.get_profile error: #{e.message}")
+    {
+      success: false,
+      error: e.message
+    }
+  end
+
   def get_posts(uris)
     uris = [uris] unless uris.is_a?(Array)
     return { success: true, posts: [] } if uris.empty?

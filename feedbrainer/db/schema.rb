@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_30_194314) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_04_213345) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -88,7 +88,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_30_194314) do
     t.jsonb "post"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "uri"
+    t.datetime "published_at"
     t.index ["source_id"], name: "index_posts_on_source_id"
+    t.index ["uri"], name: "index_posts_on_uri"
   end
 
   create_table "solid_queue_blocked_executions", force: :cascade do |t|
