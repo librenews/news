@@ -1,4 +1,4 @@
-require_relative "../../lib/omniauth/atproto/key_manager"
+
 
 Rails.application.config.middleware.use OmniAuth::Builder do
   # Use the omniauth-atproto strategy with dynamic configuration
