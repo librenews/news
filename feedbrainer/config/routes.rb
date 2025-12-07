@@ -36,4 +36,7 @@ Rails.application.routes.draw do
   
   # Explicit routes for JSON and RSS formats
   get "/index", to: "home#index", as: :home_index
+  
+  # Mount Letter Opener Web in development
+  mount LetterOpenerWeb::Engine, at: "/letter_opener" if Rails.env.development?
 end

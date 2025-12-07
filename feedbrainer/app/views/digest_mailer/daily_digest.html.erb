@@ -1,0 +1,63 @@
+<div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; color: #111827;">
+  <div style="text-align: center; padding: 20px 0; border-bottom: 1px solid #e5e7eb;">
+    <h1 style="margin: 0; font-size: 24px; color: #111827;">open.news</h1>
+    <p style="margin: 5px 0 0; color: #6b7280; font-size: 14px;">Your Daily Digest</p>
+  </div>
+
+  <% if @is_global_fallback %>
+    <div style="background-color: #f3f4f6; padding: 10px; margin: 20px 0; border-radius: 6px; text-align: center; font-size: 14px; color: #4b5563;">
+      We couldn't find enough stories from your network today, so here are the top stories from everyone.
+    </div>
+  <% end %>
+
+  <div style="padding: 20px 0;">
+    <% @articles.each do |article| %>
+      <div style="margin-bottom: 30px; padding-bottom: 30px; border-bottom: 1px solid #f3f4f6;">
+        <% if article.image_url.present? %>
+          <div style="margin-bottom: 15px;">
+            <img src="<%= article.image_url %>" alt="<%= article.title %>" style="width: 100%; height: auto; border-radius: 8px; object-fit: cover; max-height: 300px;">
+          </div>
+        <% end %>
+
+        <h2 style="margin: 0 0 10px; font-size: 18px; line-height: 1.4;">
+          <a href="<%= article.url %>" style="color: #111827; text-decoration: none;"><%= article.title %></a>
+        </h2>
+
+        <% if article.description.present? %>
+          <p style="margin: 0 0 15px; color: #4b5563; font-size: 14px; line-height: 1.5;">
+            <%= truncate(article.description, length: 150) %>
+          </p>
+        <% end %>
+
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7280;">
+          <span>Shared by:</span>
+          <div style="display: flex; gap: 4px;">
+            <% article.distinct_sources.each do |post| %>
+              <% source = post.source %>
+              <% avatar = source.profile&.dig("avatar") %>
+              <% name = source.profile&.dig("displayName") || source.handle %>
+              
+              <% if avatar %>
+                <img src="<%= avatar %>" alt="<%= name %>" title="<%= name %>" style="width: 20px; height: 20px; border-radius: 50%; border: 1px solid #e5e7eb;">
+              <% else %>
+                <div style="width: 20px; height: 20px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 10px; color: #6b7280;" title="<%= name %>">
+                  <%= name.first.upcase %>
+                </div>
+              <% end %>
+            <% end %>
+            <% if article.distinct_source_count > 5 %>
+              <span style="display: flex; align-items: center; background: #f3f4f6; padding: 0 6px; border-radius: 10px;">+<%= article.distinct_source_count - 5 %></span>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div style="text-align: center; padding: 20px 0; color: #9ca3af; font-size: 12px; border-top: 1px solid #e5e7eb;">
+    <p>&copy; <%= Time.current.year %> open.news. All rights reserved.</p>
+    <p>
+      <a href="#" style="color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
+    </p>
+  </div>
+</div>

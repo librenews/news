@@ -41,6 +41,12 @@ env:
   secret:
     - RAILS_MASTER_KEY
     - POSTGRES_PASSWORD
+    - SMTP_ADDRESS
+    - SMTP_PORT
+    - SMTP_DOMAIN
+    - SMTP_USERNAME
+    - SMTP_PASSWORD
+    - APP_DOMAIN
   clear:
     RAILS_ENV: production
     DATABASE_URL: postgres://feedbrainer:feedbrainer_prod_2024@news-db:5432/feedbrainer_production
