@@ -24,6 +24,16 @@ servers:
       clear:
         DB_POOL: 5
 
+  consumer:
+    hosts:
+      - 164.90.132.64
+    cmd: bundle exec ruby script/firehose_consumer.rb
+    options:
+      network: news-app
+    env:
+      clear:
+        DB_POOL: 5
+
 # Enable SSL auto certification via Let's Encrypt
 proxy:
   ssl: true
@@ -47,6 +57,7 @@ env:
     - SMTP_USERNAME
     - SMTP_PASSWORD
     - APP_DOMAIN
+    - ATPROTO_DID
   clear:
     RAILS_ENV: production
     DATABASE_URL: postgres://feedbrainer:feedbrainer_prod_2024@news-db:5432/feedbrainer_production
@@ -123,6 +134,7 @@ accessories:
       clear:
         MIX_ENV: prod
         DATABASE_URL: postgres://feedbrainer:feedbrainer_prod_2024@news-db:5432/feedbrainer_production
+        REDIS_URL: redis://news-redis:6379/0
         SECRET_KEY_BASE: df65eecdeae36df5618da66896115a1c6cc6f2132c77f5057d790e602b4965056ebf72f8ca7fcf20da0bc50c40d115015d6f682fe8638ea7cf15e6e717db2fa6
         PHX_SERVER: true
     cmd: start
