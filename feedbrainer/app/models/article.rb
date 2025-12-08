@@ -15,6 +15,7 @@ class Article < ApplicationRecord
   attr_accessor :distinct_sources, :distinct_source_count
 
   after_create_commit :enqueue_embedding_processing
+  before_validation :decode_html_entities
 
   def clean_text!
     cleaned = ArticleTextCleaningService.call(self)
@@ -37,5 +38,9 @@ class Article < ApplicationRecord
 
   def enqueue_embedding_processing
     ProcessArticleEmbeddingsJob.perform_later(id)
+  end
+
+  def decode_html_entities
+    self.title = HTMLEntities.new.decode(title) if title.present?
   end
 end

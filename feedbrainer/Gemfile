@@ -41,6 +41,7 @@ gem "omniauth"
 # gem "omniauth-rails_csrf_protection"
 gem "omniauth-atproto"
 gem "jwt"  # For DPoP token generation
+gem "htmlentities"
 
 # Deploy this application anywhere as a Docker container [https://kamal-deploy.org]
 gem "kamal", require: false
