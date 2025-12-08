@@ -9,6 +9,8 @@ feedbrainer/public/assets/
 feedbrainer/public/packs/
 feedbrainer/node_modules/
 feedbrainer/.bundle/
+feedbrainer/config/*.json
+feedbrainer/config/*.pem
 
 # Elixir (skybeam)
 skybeam/_build/
