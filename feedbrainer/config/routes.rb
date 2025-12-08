@@ -38,5 +38,7 @@ Rails.application.routes.draw do
   get "/index", to: "home#index", as: :home_index
   
   # Mount Letter Opener Web in development
-  mount LetterOpenerWeb::Engine, at: "/letter_opener" if Rails.env.development?
+  resources :chats do
+    resources :messages, only: [:create]
+  end
 end

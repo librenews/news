@@ -7,4 +7,8 @@ class Post < ApplicationRecord
   validates :published_at, presence: true
 
   alias_attribute :payload, :post
+
+  def body
+    payload&.dig("record", "text")
+  end
 end
