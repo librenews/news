@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_06_131843) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_07_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "vector"
@@ -73,6 +73,34 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_131843) do
     t.index ["url"], name: "index_articles_on_url", unique: true
   end
 
+  create_table "chat_contexts", force: :cascade do |t|
+    t.bigint "chat_id", null: false
+    t.string "context_type", null: false
+    t.bigint "context_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_id"], name: "index_chat_contexts_on_chat_id"
+    t.index ["context_type", "context_id"], name: "index_chat_contexts_on_context"
+  end
+
+  create_table "chat_messages", force: :cascade do |t|
+    t.bigint "chat_id", null: false
+    t.string "role", null: false
+    t.text "content", null: false
+    t.jsonb "context_snapshot"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_id"], name: "index_chat_messages_on_chat_id"
+  end
+
+  create_table "chats", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "title"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_chats_on_user_id"
+  end
+
   create_table "entities", force: :cascade do |t|
     t.string "name", null: false
     t.string "entity_type", null: false
@@ -82,6 +110,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_131843) do
     t.datetime "updated_at", null: false
     t.index ["normalized_name", "entity_type"], name: "index_entities_on_normalized_name_and_entity_type", unique: true
     t.index ["normalized_name"], name: "index_entities_on_normalized_name"
+  end
+
+  create_table "global_feeds", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
   create_table "identities", force: :cascade do |t|
@@ -273,6 +306,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_06_131843) do
   add_foreign_key "article_entities", "entities"
   add_foreign_key "article_posts", "articles"
   add_foreign_key "article_posts", "posts"
+  add_foreign_key "chat_contexts", "chats"
+  add_foreign_key "chat_messages", "chats"
+  add_foreign_key "chats", "users"
   add_foreign_key "identities", "users"
   add_foreign_key "posts", "sources"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

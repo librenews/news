@@ -6,6 +6,7 @@ class User < ApplicationRecord
   
   # OAuth identities (Bluesky, Mastodon, etc.)
   has_many :identities, dependent: :destroy
+  has_many :chats, dependent: :destroy
 
   validates :atproto_did, uniqueness: true, allow_nil: true
   validates :email, uniqueness: true, allow_nil: true

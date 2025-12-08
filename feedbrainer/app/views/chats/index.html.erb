@@ -1,0 +1,36 @@
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Your Chats</h1>
+    <%= button_to "New Chat", chats_path, method: :post, class: "bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors" %>
+  </div>
+
+  <% if @chats.any? %>
+    <div class="grid gap-4">
+      <% @chats.each do |chat| %>
+        <%= link_to chat_path(chat), class: "block p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700" do %>
+          <div class="flex justify-between items-start">
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                <%= chat.title.presence || "New Chat" %>
+              </h2>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                <%= time_ago_in_words(chat.updated_at) %> ago
+              </p>
+            </div>
+            <div class="flex -space-x-2 overflow-hidden">
+              <%# Context icons could go here %>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+      <h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">No chats yet</h3>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Start a new conversation to explore your news.</p>
+      <div class="mt-6">
+        <%= button_to "Start Chatting", chats_path, method: :post, class: "inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600" %>
+      </div>
+    </div>
+  <% end %>
+</div>
