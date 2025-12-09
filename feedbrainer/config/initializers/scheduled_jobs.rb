@@ -17,6 +17,11 @@ Rails.application.config.after_initialize do
     # Start after 1 hour to allow initial setup
     SyncAllUsersFollowsJob.set(wait: 1.hour).perform_later
     Rails.logger.info("Scheduled initial SyncAllUsersFollowsJob (will run in 1 hour)")
+
+    # Schedule missing profiles backfill job (runs hourly)
+    # Start after 30 minutes to stagger load
+    BackfillMissingProfilesJob.set(wait: 30.minutes).perform_later
+    Rails.logger.info("Scheduled initial BackfillMissingProfilesJob (will run in 30 minutes)")
   rescue => e
     Rails.logger.error("Error scheduling jobs: #{e.message}")
     Rails.logger.error(e.backtrace.join("\n"))
