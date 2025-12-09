@@ -18,7 +18,8 @@ class SyncSourceProfileJob < ApplicationJob
     end
 
     # Use DID as the actor identifier
-    result = BlueskyClient.get_profile(source.atproto_did)
+    # Use SkytorchClient which handles auth and rate limits better than direct public API
+    result = SkytorchClient.get_profile(source.atproto_did)
 
     if result[:success]
       # Only update if we got actual profile data
